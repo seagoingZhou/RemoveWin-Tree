@@ -790,11 +790,14 @@ void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
                 sdsfree(tn->name);
                 tn->name = sdsdup(c->rargv[3]->ptr);
             } else if (checkCurrency(tn->vectorClock,vc_changeval)){
+                /*
                 if (sdscmp(tn->name,c->rargv[3]->ptr)>0){
                     sdsfree(tn->name);
                     tn->name = sdsdup(c->rargv[3]->ptr);  
                 }
-                
+                */
+                sdsfree(tn->name);
+                tn->name = sdsnew("currency");
             }
 
             updateVC(tn->vectorClock,vc_changeval);
