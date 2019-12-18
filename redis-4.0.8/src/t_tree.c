@@ -800,7 +800,7 @@ void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
                 tn->name = sdsnew("currency");
             }
 
-            updateVC(tn->vectorClock,vc_changeval);
+            tn->vectorClock = updateVC(tn->vectorClock,vc_changeval);
 
             deleteVC(rem);
             deleteVC(vc_changeval);
