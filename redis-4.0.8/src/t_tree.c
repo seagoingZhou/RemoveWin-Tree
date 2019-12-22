@@ -786,18 +786,16 @@ void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
                                         rem,subtreeEles);
             freeSetObject(subtreeEles);
 
-            if (causally_ready(tn->vectorClock,vc_changeval)){
-                sdsfree(tn->name);
-                tn->name = sdsdup(c->rargv[3]->ptr);
-            } else if (checkCurrency(tn->vectorClock,vc_changeval)){
-                /*
+            if (checkCurrency(tn->vectorClock,vc_changeval)){
+                
                 if (sdscmp(tn->name,c->rargv[3]->ptr)>0){
                     sdsfree(tn->name);
                     tn->name = sdsdup(c->rargv[3]->ptr);  
                 }
-                */
+                
+            } else if (causally_ready(tn->vectorClock,vc_changeval)){
                 sdsfree(tn->name);
-                tn->name = sdsnew("currency");
+                tn->name = sdsdup(c->rargv[3]->ptr);
             }
 
             tn->vectorClock = updateVC(tn->vectorClock,vc_changeval);
