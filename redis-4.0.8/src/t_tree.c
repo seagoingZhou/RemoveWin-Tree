@@ -283,10 +283,22 @@ void treeMembers(client *c){
         TreeNode* tn = tnHTGet(c->db,c->argv[1],uid,0);
         
         sds parent = tn->parent;
-        sds nodename = sdscatfmt(sdsdup(uid),":%S",sdsdup(tn->name));
+        sds nodename = sdscatfmt(sdsdup(uid)," %S",sdsdup(tn->name));
         
-        sds output = sdscatfmt(sdsdup(nodename),"-%S(%S)",sdsdup(parent),sdsfromlonglong(setTypeSize(tn->children)));
-       
+        sds output = sdscatfmt(sdsdup(nodename)," %S (%S)[",sdsdup(parent),
+                                    sdsfromlonglong(setTypeSize(tn->children)));
+        if (setTypeSize(tn->children)>0){
+            setTypeIterator *si;
+            sds ele;
+            si = setTypeInitIterator(tn->children);
+            while((ele = setTypeNextObject(si)) != NULL) {
+                output = sdscatfmt(output,"%S ",sdsdup(ele));
+                sdsfree(ele);
+            }
+            setTypeReleaseIterator(si);
+        }
+
+        output = sdscatfmt(output,"]");
         addReplyBulkCBuffer(c,output,sdslen(output));
         cardinality++;
         sdsfree(output);
