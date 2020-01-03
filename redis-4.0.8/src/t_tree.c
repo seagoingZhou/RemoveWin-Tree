@@ -418,6 +418,8 @@ void CreateTree(client *c){
                 tn->parent = sdsnew("null");
                 PID(tn->rem) = CURRENT_PID;
                 sdsfree(uid);
+
+                server.dirty++;
                 //sdsfree(rootName);
 
             } 
@@ -502,7 +504,9 @@ void treeNodeInsert(client *c, redisDb *db,robj *tname, robj *nodename){
                     tn->parent = sdsdup(c->rargv[3]->ptr);
                     
                     // 父节添加子节点信息
-                    setTypeAdd(tnp->children,c->rargv[4]->ptr);   
+                    setTypeAdd(tnp->children,c->rargv[4]->ptr); 
+
+                    server.dirty++;  
                     
                 }
             }
@@ -585,7 +589,7 @@ void treeNodeInsertWithUid(client *c, redisDb *db,robj *tname, robj *nodename){
                     
                     // 父节添加子节点信息
                     setTypeAdd(tnp->children,c->rargv[4]->ptr);   
-                    
+                    server.dirty++;
                 }
             }
             
@@ -646,7 +650,7 @@ void subtreeRemoveFunc(client *c, robj* tname, sds uid,
         TreeNode *tn_p = tnHTGet(c->db, tname, parent_id,0);
         setTypeRemove(tn_p->children,uid);
         
-        
+        server.dirty++;
     }
 }
 
@@ -820,6 +824,8 @@ void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
                 tn->name = sdsdup(c->rargv[3]->ptr);
             }
 
+            server.dirty++;
+
             updateVC(tn->vectorClock,vc_changeval);
 
             deleteVC(rem);
@@ -906,6 +912,8 @@ void treeMove(client *c,redisDb *db,robj *tname, robj *dst_id, robj* src_id){
                     TreeNode *src_tn_p = tnHTGet(c->db, c->rargv[1], src_tn->parent,0);
                     setTypeRemove(src_tn_p->children,c->rargv[3]->ptr);
                     setTypeAdd(dst_tn->children,c->rargv[3]->ptr);
+
+                    server.dirty++;
                 }
             } else {
                 setTypeIterator *si;
@@ -921,6 +929,8 @@ void treeMove(client *c,redisDb *db,robj *tname, robj *dst_id, robj* src_id){
                     sdsfree(ele);
                 }
                 setTypeReleaseIterator(si);
+
+                server.dirty++;
             }
             
 
