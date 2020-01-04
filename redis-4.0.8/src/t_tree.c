@@ -27,6 +27,7 @@ typedef struct TreeInfo{
 #define RW_TREE_SUFFIX "_tree_"
 #define TREE_INFO "_tree_info_"
 #define TREE_ROOT "_root_"
+#define UIDLENGTH 32
 
 /**********************队列*****************************/
 typedef struct QNode{
@@ -533,13 +534,7 @@ void treeNodeInsertWithUid(client *c, redisDb *db,robj *tname, robj *nodename){
                 //return;
             }
          
-            //robj* info = createObject(OBJ_STRING,sdsnew(TREE_INFO));
-            TreeInfo* ti = tinfoHTGet(c->db,c->argv[1],TREE_INFO,0);
-            if (ti==NULL){
-                addReply(c,shared.err);
-                return;
-            }
-           
+            
            // check父节点是否存在
             
             TreeNode* tnp = tnHTGet(c->db,c->argv[1],c->argv[3]->ptr,0);
@@ -550,7 +545,7 @@ void treeNodeInsertWithUid(client *c, redisDb *db,robj *tname, robj *nodename){
             ADD_CR_NON_RMV(tnp->rem);          
 
             //插入reh
-            TreeNode* tn = tnHTGet(c->db,c->argv[1],c->argv[3]->ptr,1);
+            TreeNode* tn = tnHTGet(c->db,c->argv[1],c->argv[4]->ptr,1);
             if (EXISTS(tn->rem)){
                 addReply(c,shared.ele_exist);
                 return;
@@ -648,7 +643,10 @@ void subtreeRemoveFunc(client *c, robj* tname, sds uid,
             }
 
         TreeNode *tn_p = tnHTGet(c->db, tname, parent_id,0);
-        setTypeRemove(tn_p->children,uid);
+        if (tn_p){
+            setTypeRemove(tn_p->children,uid);
+        }
+        
         
         server.dirty++;
     }
@@ -681,33 +679,47 @@ void treeNodeDelete(client *c, redisDb *db,robj *tname, robj *uid){
             
             // 添加子节点参数
             robj* subtreeset = subTree(c->db,c->argv[1],c->argv[2]->ptr);
-           
+            sds subtree_sds = sdsnew("/");
+            long long subtree_size = setTypeSize(subtreeset);
+            RARGV_ADD_SDS(sdsfromlonglong(subtree_size));
+
             sds ele;
             setTypeIterator *si;
             si = setTypeInitIterator(subtreeset);
             while((ele = setTypeNextObject(si)) != NULL) {
-
-                if (sdscmp(ele,c->argv[2]->ptr)!=0){
-                    RARGV_ADD_SDS(sdsdup(ele));
-                }   
+                subtree_sds = sdscatfmt(subtree_sds,"%S/",sdsdup(ele));
                 sdsfree(ele);
             }
             setTypeReleaseIterator(si);
-            freeSetObject(subtreeset);   
+            freeSetObject(subtreeset);
+            RARGV_ADD_SDS(subtree_sds);   
 
             TreeNode* tn = tnHTGet(c->db,c->argv[1],c->argv[2]->ptr,0);
             ADD_CR_RMV(tn->rem);      
 
         CRDT_EFFECT
             /* 
-             *   input: delete treeName node_id... reh
+             *   input: delete treeName node_id subtreeSize subtreeSds reh
+             *             0        1      2        3           4       5
              */
             vc *rem = CR_GET_LAST;
 
             robj* subtreeEles = subTree(c->db,c->rargv[1],c->rargv[2]->ptr);
             //setTypeRemove(subtreeEles,c->rargv[1]->ptr);
-            for (int i=2; i<c->rargc-1; i++){
-                setTypeAdd(subtreeEles,c->rargv[i]->ptr);
+            long long len;
+            sds subtreeSds = c->rargv[4]->ptr;
+            char *p = subtreeSds;
+            getLongLongFromObject(c->rargv[3], &len);
+            char uid[UIDLENGTH];
+            for (long long i=0; i<len; i++){
+                p++;
+                int uidPos = 0;
+                while(*p!='/'){
+                    uid[uidPos++] = *p;
+                    p++;
+                }
+                uid[uidPos] = '\0';
+                setTypeAdd(subtreeEles,sdsnew(uid));
             }
 
             TreeNode *tn = tnHTGet(c->db, c->rargv[1], c->rargv[2]->ptr, 0);
