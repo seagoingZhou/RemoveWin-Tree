@@ -2078,6 +2078,7 @@ void InsertWithIdCommand(client *c);
 void subtreeCommand(client *c);
 void DeleteCommand(client *c);
 void ChangeValueCommand(client *c);
+void MoveCommand(client *c);
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));
