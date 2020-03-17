@@ -6,6 +6,7 @@
 #define RW_TREE_SUFFIX "_tree_"
 #define TREE_INFO "_tree_info_"
 #define TREE_ROOT "_root_"
+#define ROOT_ID "0,0"
 #define UIDLENGTH 32
 
 #ifdef RWT_OVERHEAD
@@ -124,43 +125,35 @@ inline rtn* rtnHTGet(redisDb *db, robj *tname, sds key, int create)
     );
 }
 
-void tRemFunc(client *c, rtn *tn,sds uid,rtn *tn_p, vc *t)
+void tRemFunc(client *c, rtn *tn, vc *t)
 {
     if (tn&&removeCheck((reh *) tn, t))
     {
+        rtn* tn_p = rtnHTGet(c->db,c->rargv[1],tn->tdata->parent,0);
         REH_RMV_FUNC(tn,t);
         if (tn_p){
-            setTypeRemove(tn_p->tdata->children,uid);
+            setTypeRemove(tn_p->tdata->children,tn->tdata->uid);
         }
-
-        /***delete ***/
-        robj *tree = lookupKeyWrite(c->db,c->rargv[1]);
-        setTypeRemove(tree,uid);
         
         //notifyLoop(e, c->db);
     }
 }
-
-void RemoveFun(client *c, robj* tname, robj* subtreeEles, vc *t){
-
-     if (setTypeSize(subtreeEles) > 0){
-                setTypeIterator *si;
-                sds ele;
-                si = setTypeInitIterator(subtreeEles);
-                while((ele = setTypeNextObject(si)) != NULL) {
-                    rtn* tn = rtnHTGet(c->db,tname,ele,1);
-                    rtn* tn_p = NULL;
-                    if (tn){
-                        tn_p = rtnHTGet(c->db,tname,tn->tdata->parent,0);
-                    }
-                    tRemFunc(c,tn,ele,tn_p,t);
-                    
-                    sdsfree(ele);
-                }
-                setTypeReleaseIterator(si);
+int istreeMember(client* c, robj* tname,const sds id){
+    sds ele = sdsnew(id);
+    sds root = sdsnew(ROOT_ID);
+    int res = 1;
+    while(sdscmp(ele,root)!=0){
+        rtn* tn = rtnHTGet(c->db,tname,ele,0);
+        if(!(tn&&EXISTS(tn))){
+            res = 0;
+            break;
+        }
+        sdsfree(ele);
+        ele = sdsdup(tn->tdata->parent);
     }
-
-
+    sdsfree(ele);
+    sdsfree(root);
+    return res;
 }
 
 robj* subTree(redisDb *db, robj* treeHT, sds uid){
@@ -265,45 +258,31 @@ void CreateTree(client *c){
     CRDT_BEGIN
         CRDT_PREPARE
 
-            robj *tree = lookupKeyRead(c->db,c->argv[1]);
+            robj *tree = getInnerHT(c->db,c->argv[1]->ptr,RW_TREE_SUFFIX,0);
             if (tree != NULL) {
-                
-                if (tree->type != OBJ_TREE) {
-                    //addReply(c,shared.wrongtypeerr);
-                    //return;
-                }
                 addReply(c,shared.ele_exist);
                 return;
             }
             
 
         CRDT_EFFECT
-            robj *tree ;
-            tree = lookupKeyWrite(c->db,c->rargv[1]);
-            if (tree == NULL){
-                //创建tree
-                tree = createSetObject();
-                dbAdd(c->db,c->rargv[1],tree);
 
                 /* 插入根节点 
                  * root->uid = "0,0"
                  * root->name = "_root_"
                  */
-                sds uid = sdsnew("0,0");
-                setTypeAdd(tree,uid);
-                
+                sds uid = sdsnew(ROOT_ID);
                 rtn* tn = rtnHTGet(c->db,c->rargv[1],uid,1);
                 tn->tdata->uid = sdsdup(uid);
                 tn->tdata->name = sdsnew(TREE_ROOT);
                 tn->tdata->parent = sdsnew("null");
                 PID(tn) = CURRENT_PID;
-                
                 sdsfree(uid);
 
                 server.dirty++;
                 //sdsfree(rootName);
 
-            } 
+            
 
     CRDT_END
 }
@@ -314,14 +293,11 @@ void treeMembers(client *c){
     void *replylen = NULL;
     int cardinality = 0;
     
-    robj *tree = lookupKeyRead(c->db,c->argv[1]);
+    robj *tree = subTree(c->db,c->argv[1],sdsnew(ROOT_ID));
     if (tree == NULL) {
         addReply(c,shared.czero);
         return;
-    } else if (tree->type != OBJ_TREE) {
-        //addReply(c,shared.wrongtypeerr);
-        //return;
-    }
+    } 
     
     replylen = addDeferredMultiBulkLength(c);
     
@@ -360,83 +336,77 @@ void treeMembers(client *c){
         sdsfree(uid);
     }
     treeTypeReleaseIterator(tri);
+    decrRefCount(tree);
 
     setDeferredMultiBulkLength(c,replylen,cardinality);
 
 }
 
+int checkInitVC(const vc *c){
+    for (int i = 0; i < c->size; ++i)
+        if (c->vector[i]>0)
+            return 0;
+    return 1;
+}
 /* 
  *  Insert treeName nodeName parent_id uid
+ *    0      1          2       3        4
  */
 void treeNodeInsertWithUid(client *c, redisDb *db,robj *tname, robj *nodename){
     CRDT_BEGIN
         CRDT_PREPARE
 
-            robj *tree = lookupKeyRead(c->db,c->argv[1]);
-            if (tree == NULL){
+            robj *tree = getInnerHT(c->db,c->argv[1]->ptr,RW_TREE_SUFFIX,0);
+            if (tree == NULL) {
                 addReply(c,shared.emptymultibulk);
                 return;
-            } else if(tree->type != OBJ_TREE){
-                //addReply(c,shared.wrongtypeerr);
-                //return;
             }
-         
-            
-           // check父节点是否存在
-            
-            rtn* tnp = rtnHTGet(c->db,c->argv[1],c->argv[3]->ptr,0);
-            if (!tnp || !EXISTS(tnp)){
+
+           // check父节点是否存在 
+           if (!istreeMember(c,c->argv[1],c->argv[3]->ptr)) {
                 addReply(c,shared.ele_nexist);
                 return;
-            }
+           }        
+            rtn* tnp = rtnHTGet(c->db,c->argv[1],c->argv[3]->ptr,0);
             ADD_CR_NON_RMV(tnp);          
 
             //插入reh
-            rtn* tn = rtnHTGet(c->db,c->argv[1],c->argv[4]->ptr,1);
-            if (tn && EXISTS(tn)){
+            if (istreeMember(c,c->argv[1],c->argv[4]->ptr)) {
                 addReply(c,shared.ele_exist);
                 return;
-            }
-            //ADD_CR_NON_RMV(tn);
+           } 
+            rtn* tn = rtnHTGet(c->db,c->argv[1],c->argv[4]->ptr,1);
+            ADD_CR_NON_RMV(tn);
             
         CRDT_EFFECT
-            /* input:   Insert  treeName  nodeName  parent_id    uid  parent_remh 
-            *              0       1       2           3         4         5     
+            /* input:   Insert  treeName  nodeName  parent_id    uid  parent_remh  node_reh
+            *              0       1       2           3         4         5          6    
             */
 
-            //vc *t = CR_GET_LAST;
-            vc *t = CR_GET_LAST;
-            robj *tree = lookupKeyWrite(c->db,c->rargv[1]);
+            vc *r_p = CR_GET(5);
+            vc *r = CR_GET_LAST;
       
             rtn* tn = rtnHTGet(c->db,c->rargv[1],c->rargv[4]->ptr,1);
-            rtn* tnp = rtnHTGet(c->db,c->rargv[1],c->rargv[3]->ptr,0);         
-            
-            //remove function
-            robj* subtreeEles = subTree(c->db,c->rargv[1],c->rargv[3]->ptr);
-            setTypeAdd(subtreeEles,c->rargv[4]->ptr);
-            if (tnp&&EXISTS(tnp)){
-                RemoveFun(c,c->rargv[1],subtreeEles,t);
+            rtn* tnp = rtnHTGet(c->db,c->rargv[1],c->rargv[3]->ptr,1);  
+            tn->tdata->uid = sdsdup(c->rargv[4]->ptr);
+            tn->tdata->parent = sdsdup(c->rargv[3]->ptr);
+            if (checkInitVC(tn->tdata->vectorClock)){
+                tn->tdata->name = sdsdup(c->rargv[2]->ptr);
             }
-            freeSetObject(subtreeEles);
+            // 父节添加子节点信息
+            setTypeAdd(tnp->tdata->children,c->rargv[4]->ptr);
 
-            
-            if (tn && tnp && EXISTS(tnp)){
-                if (insertCheck((reh *) tn, t)){
-                    //生成子节点
-                    PID(tn) = t->id;
-                    setTypeAdd(tree,c->rargv[4]->ptr);
-                    
-                    tn->tdata->uid = sdsdup(c->rargv[4]->ptr);
-                    tn->tdata->name = sdsdup(c->rargv[2]->ptr);
-                    tn->tdata->parent = sdsdup(c->rargv[3]->ptr);
-                    
-                    // 父节添加子节点信息
-                    setTypeAdd(tnp->tdata->children,c->rargv[4]->ptr);   
-                    server.dirty++;
-                }
+            tRemFunc(c,tnp,r_p);
+            tRemFunc(c,tn,r);
+
+            if (insertCheck((reh *) tn, r)){
+                //生成子节点
+                PID(tn) = r->id;    
+                server.dirty++;
             }
             
-            deleteVC(t);
+            deleteVC(r);
+            deleteVC(r_p);
            
     CRDT_END
 }
@@ -449,78 +419,107 @@ void treeNodeDelete(client *c, redisDb *db,robj *tname, robj *uid){
     CRDT_BEGIN
         CRDT_PREPARE
 
-            robj *tree = lookupKeyWrite(c->db,c->argv[1]);
-            if (tree == NULL){
+            robj *tree = getInnerHT(c->db,c->argv[1]->ptr,RW_TREE_SUFFIX,0);
+            if (tree == NULL) {
                 addReply(c,shared.emptymultibulk);
                 return;
-            } else if(tree->type != OBJ_TREE){
-                //addReply(c,shared.wrongtypeerr);
-                //return;
             }
 
             // check节点是否存在
-            rtn* tn = rtnHTGet(c->db,c->argv[1],c->argv[2]->ptr,0);
-            if (!(tn&&EXISTS(tn))){
+            if (!istreeMember(c,c->argv[1],c->argv[2]->ptr)) {
                 addReply(c,shared.ele_nexist);
                 return;
-            }
-
-            
-            // 添加子节点参数
-            robj* subtreeset = subTree(c->db,c->argv[1],c->argv[2]->ptr);
-            sds subtree_sds = sdsnew("/");
-            long long subtree_size = setTypeSize(subtreeset);
-            RARGV_ADD_SDS(sdsfromlonglong(subtree_size));
-
-            sds ele;
-            setTypeIterator *si;
-            si = setTypeInitIterator(subtreeset);
-            while((ele = setTypeNextObject(si)) != NULL) {
-                subtree_sds = sdscatfmt(subtree_sds,"%S/",sdsdup(ele));
-                sdsfree(ele);
-            }
-            setTypeReleaseIterator(si);
-            freeSetObject(subtreeset);
-            RARGV_ADD_SDS(subtree_sds);   
-
-            
+           }  
+            rtn* tn = rtnHTGet(c->db,c->argv[1],c->argv[2]->ptr,0);
             ADD_CR_RMV(tn);      
 
         CRDT_EFFECT
             /* 
-             *   input: delete treeName node_id subtreeSize subtreeSds reh
-             *             0        1      2        3           4       5
+             *   input: delete treeName node_id   reh
+             *             0        1      2        3 
              */
-            vc *t = CR_GET_LAST;
-
-            robj* subtreeEles = subTree(c->db,c->rargv[1],c->rargv[2]->ptr);
-            //setTypeRemove(subtreeEles,c->rargv[1]->ptr);
-            long long len;
-            sds subtreeSds = c->rargv[4]->ptr;
-            char *p = subtreeSds;
-            getLongLongFromObject(c->rargv[3], &len);
-            char uid[UIDLENGTH];
-            for (long long i=0; i<len; i++){
-                p++;
-                int uidPos = 0;
-                while(*p!='/'){
-                    uid[uidPos++] = *p;
-                    p++;
-                }
-                uid[uidPos] = '\0';
-                setTypeAdd(subtreeEles,sdsnew(uid));
-            }
+            vc *r = CR_GET_LAST;
 
             rtn *tn = rtnHTGet(c->db, c->rargv[1], c->rargv[2]->ptr, 1);
-            if (tn && EXISTS(tn)){
-                RemoveFun(c,c->rargv[1],subtreeEles,t);
+            tRemFunc(c,tn,r);
+            deleteVC(r);
+
+
+
+    CRDT_END
+}
+
+int checkCurrency(const vc * vc1, const vc *vc2){
+    serverAssert(vc1->size == vc2->size);
+    int flag1 = 0;
+    int flag2 = 0;
+    if (equalVC(vc1,vc2)) return 0;
+
+    for (int i = 0; i < vc1->size; ++i){
+        if (vc1->vector[i] > vc2->vector[i]){
+            flag1 = 1;
+        } else if (vc1->vector[i] < vc2->vector[i]){
+            flag2 = 1;
+        }
+    }
+
+    return flag1&&flag2;
+}
+
+/* 
+ *  changeValue treeName node_id nodeName
+ */
+
+void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
+    CRDT_BEGIN
+        CRDT_PREPARE
+
+            robj *tree = getInnerHT(c->db,c->argv[1]->ptr,RW_TREE_SUFFIX,0);
+            if (tree == NULL) {
+                addReply(c,shared.emptymultibulk);
+                return;
             }
+
+           // check节点是否存在
+           if (!istreeMember(c,c->argv[1],c->argv[2]->ptr)) {
+                addReply(c,shared.ele_nexist);
+                return;
+           }  
+            rtn* tn = rtnHTGet(c->db,c->argv[1],c->argv[2]->ptr,0);
             
-            freeSetObject(subtreeEles);
-            deleteVC(t);
+            RARGV_ADD_SDS(nowVC(tn->tdata->vectorClock));
+            ADD_CR_NON_RMV(tn);
 
+        CRDT_EFFECT
+            /* 
+            *  changeValue treeName node_id nodeName vc reh
+            *     0            1       2        3     4   5 
+            */
 
+            vc *r = CR_GET_LAST;
+            vc *vc_changeval = CR_GET(4);
+           
+           rtn* tn = rtnHTGet(c->db,c->rargv[1],c->rargv[2]->ptr,1);
+            
 
+            if (checkCurrency(tn->tdata->vectorClock,vc_changeval)){
+                
+                if (sdscmp(tn->tdata->name,c->rargv[3]->ptr)>0){
+                    sdsfree(tn->tdata->name);
+                    tn->tdata->name = sdsdup(c->rargv[3]->ptr);  
+                }
+                
+            } else if (causally_ready(tn->tdata->vectorClock,vc_changeval)){
+                sdsfree(tn->tdata->name);
+                tn->tdata->name = sdsdup(c->rargv[3]->ptr);
+            }
+
+            server.dirty++;
+
+            updateVC(tn->tdata->vectorClock,vc_changeval);
+            deleteVC(r);
+            deleteVC(vc_changeval);
+            
     CRDT_END
 }
 
@@ -541,4 +540,8 @@ void InsertWithIdCommand(client *c){
 
 void DeleteCommand(client *c){
     treeNodeDelete(c,c->db,c->argv[1],c->argv[2]);
+}
+
+void ChangeValueCommand(client *c){
+    treeNodeChangeValue(c,c->db,c->argv[1],c->argv[2]);
 }
