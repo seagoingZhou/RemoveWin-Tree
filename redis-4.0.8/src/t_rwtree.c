@@ -503,12 +503,12 @@ void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
             
 
             if (checkCurrency(tn->tdata->vectorClock,vc_changeval)){
-                
-                if (sdscmp(tn->tdata->name,c->rargv[3]->ptr)>0){
+                sds tmp = sdsnew(tn->tdata->name);
+                if (sdscmp(tmp,c->rargv[3]->ptr)>0){
                     sdsfree(tn->tdata->name);
                     tn->tdata->name = sdsdup(c->rargv[3]->ptr);  
                 }
-                
+                sdsfree(tmp);
             } else if (causally_ready(tn->tdata->vectorClock,vc_changeval)){
                 sdsfree(tn->tdata->name);
                 tn->tdata->name = sdsdup(c->rargv[3]->ptr);
