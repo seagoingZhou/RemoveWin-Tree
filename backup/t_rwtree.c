@@ -166,21 +166,18 @@ robj* subTree(redisDb *db, robj* treeHT, sds uid){
         sds parent_id = deQueue(queue);
         //rtn* tn = tnHTGet(db, treeHT, parent_id, 0);
         rtn* tn = rtnHTGet(db,treeHT,parent_id,0);
-        if (tn && EXISTS(tn)){
-            setTypeAdd(subtree,parent_id);
-            if (setTypeSize(tn->tdata->children)>0){
-                sds ele;
-                setTypeIterator *si;
-                si = setTypeInitIterator(tn->tdata->children);
-                while((ele = setTypeNextObject(si)) != NULL) {
-                    enQueue(queue,ele);
-                    sdsfree(ele);
-                }
-                setTypeReleaseIterator(si);
+        if (tn && EXISTS(tn) && setTypeSize(tn->tdata->children)>0){
+            sds ele;
+            setTypeIterator *si;
+            si = setTypeInitIterator(tn->tdata->children);
+            while((ele = setTypeNextObject(si)) != NULL) {
+                
+                enQueue(queue,ele);
+                sdsfree(ele);
             }
-            
+            setTypeReleaseIterator(si);
         }
-              
+        setTypeAdd(subtree,parent_id);      
         sdsfree(parent_id);
     }
 
@@ -312,20 +309,18 @@ void treeMembers(client *c){
     while ((uid = treeTypeNextObject(tri)) != NULL){
         
         rtn* tn = rtnHTGet(c->db,c->argv[1],uid,0);
-        rtn* tn_p = rtnHTGet(c->db,c->argv[1],tn->tdata->parent,0);
-        if (tn && EXISTS(tn)&&tn_p&&EXISTS(tn_p)){
-            sds parent = sdsnew(tn->tdata->parent);
-            sds nodename = sdscatfmt(sdsnew(uid)," %S",sdsnew(tn->tdata->name));
+        if (tn && EXISTS(tn)){
+            sds parent = sdsdup(tn->tdata->parent);
+            sds nodename = sdscatfmt(sdsdup(uid)," %S",sdsdup(tn->tdata->name));
             
-            sds output = sdscatfmt(sdsnew(nodename)," %S (%S)[",sdsnew(parent),
+            sds output = sdscatfmt(sdsdup(nodename)," %S (%S)[",sdsdup(parent),
                                         sdsfromlonglong(setTypeSize(tn->tdata->children)));
-            
             if (setTypeSize(tn->tdata->children)>0){
                 setTypeIterator *si;
                 sds ele;
                 si = setTypeInitIterator(tn->tdata->children);
                 while((ele = setTypeNextObject(si)) != NULL) {
-                    output = sdscatfmt(output,"%S ",sdsnew(ele));
+                    output = sdscatfmt(output,"%S ",sdsdup(ele));
                     sdsfree(ele);
                 }
                 setTypeReleaseIterator(si);
@@ -335,7 +330,6 @@ void treeMembers(client *c){
             addReplyBulkCBuffer(c,output,sdslen(output));
             cardinality++;
             sdsfree(output);
-            sdsfree(parent);
             sdsfree(nodename);
         }
         
@@ -515,7 +509,6 @@ void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
                     tn->tdata->name = sdsdup(c->rargv[3]->ptr);  
                 }
                 sdsfree(tmp);
-                
             } else if (causally_ready(tn->tdata->vectorClock,vc_changeval)){
                 sdsfree(tn->tdata->name);
                 tn->tdata->name = sdsdup(c->rargv[3]->ptr);
