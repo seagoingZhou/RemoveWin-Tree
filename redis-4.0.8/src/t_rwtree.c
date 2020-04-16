@@ -90,6 +90,7 @@ sds deQueue(Queue* q){
 typedef struct RAW_RT_node
 {
     vc *vectorClock;
+    vc *moveVC;
     void* uid;
     void* name;
     void* parent;
@@ -108,6 +109,7 @@ reh *rtnNew(){
     REH_INIT(tn);
     tn->tdata = zmalloc(sizeof(rawt));
     tn->tdata->vectorClock = l_newVC;
+    tn->tdata->moveVC = l_newVC;
     tn->tdata->uid = NULL;
     tn->tdata->name = NULL;
     tn->tdata->parent = NULL;
@@ -505,29 +507,118 @@ void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
             vc *r = CR_GET_LAST;
             vc *vc_changeval = CR_GET(4);
            
-           rtn* tn = rtnHTGet(c->db,c->rargv[1],c->rargv[2]->ptr,1);
-            
+            rtn* tn = rtnHTGet(c->db,c->rargv[1],c->rargv[2]->ptr,1);
 
-            if (checkCurrency(tn->tdata->vectorClock,vc_changeval)){
-                sds tmp = sdsnew(tn->tdata->name);
-                if (sdscmp(tmp,c->rargv[3]->ptr)>0){
+            tRemFunc(c,tn,r);
+
+            if (updateCheck((reh *) tn, r)){
+                if (checkCurrency(tn->tdata->vectorClock,vc_changeval)){
+                    sds tmp = sdsnew(tn->tdata->name);
+                    if (sdscmp(tmp,c->rargv[3]->ptr)>0){
+                        sdsfree(tn->tdata->name);
+                        tn->tdata->name = sdsdup(c->rargv[3]->ptr);  
+                    }
+                    sdsfree(tmp);
+                    
+                } else if (causally_ready(tn->tdata->vectorClock,vc_changeval)){
                     sdsfree(tn->tdata->name);
-                    tn->tdata->name = sdsdup(c->rargv[3]->ptr);  
+                    tn->tdata->name = sdsdup(c->rargv[3]->ptr);
                 }
-                sdsfree(tmp);
-                
-            } else if (causally_ready(tn->tdata->vectorClock,vc_changeval)){
-                sdsfree(tn->tdata->name);
-                tn->tdata->name = sdsdup(c->rargv[3]->ptr);
             }
-
+            
             server.dirty++;
-
             updateVC(tn->tdata->vectorClock,vc_changeval);
             deleteVC(r);
             deleteVC(vc_changeval);
             
     CRDT_END
+}
+
+/*
+ * treemove treename id_dst id_src
+ */
+void treeNodeMove(client *c, redisDb *db,robj *tname){
+    CRDT_BEGIN
+        CRDT_PREPARE
+
+            robj *tree = getInnerHT(c->db,c->argv[1]->ptr,RW_TREE_SUFFIX,0);
+            if (tree == NULL) {
+                addReply(c,shared.emptymultibulk);
+                return;
+            }
+
+            // check节点是否存在
+           if (!istreeMember(c,c->argv[1],c->argv[2]->ptr)) {
+                addReply(c,shared.ele_nexist);
+                return;
+           }
+           if (!istreeMember(c,c->argv[1],c->argv[3]->ptr)) {
+                addReply(c,shared.ele_nexist);
+                return;
+           }
+           robj *src_st = subTree(c->db,c->argv[1],c->argv[3]->ptr);
+           if (setTypeIsMember(src_st,c->argv[2]->ptr)){
+                addReply(c,shared.err);
+                return;
+           }
+           decrRefCount(src_st);
+
+           rtn* tn_dst = rtnHTGet(c->db,c->argv[1],c->argv[2]->ptr,0);
+           rtn* tn_src = rtnHTGet(c->db,c->argv[1],c->argv[3]->ptr,0);
+
+           RARGV_ADD_SDS(nowVC(tn_src->tdata->moveVC));
+           ADD_CR_NON_RMV(tn_dst);
+           ADD_CR_NON_RMV(tn_src);
+
+        CRDT_EFFECT
+        /*
+         *  treemove treename id_dst id_src move_vc dst_reh src_reh
+         *      0       1        2      3      4       5      6
+         */
+        
+            vc *r_src = CR_GET_LAST;
+            vc *r_dst = CR_GET(5);
+            vc *move_vc = CR_GET(4);
+
+            rtn* tn_dst = rtnHTGet(c->db,c->rargv[1],c->rargv[2]->ptr,1);
+            rtn* tn_src = rtnHTGet(c->db,c->rargv[1],c->rargv[3]->ptr,1); 
+
+            tRemFunc(c,tn_dst,r_dst);
+            tRemFunc(c,tn_src,r_src);
+
+            if (updateCheck((reh *)tn_src,r_src)){
+                if (checkCurrency(tn_src->tdata->moveVC,move_vc)){
+                    sds tmp = sdsnew(tn_src->tdata->parent);
+                    if (sdscmp(tmp,c->rargv[2]->ptr)>0){
+                        rtn* tn_p = rtnHTGet(c->db,c->rargv[1],tmp,0);
+                        if (tn_p){
+                            setTypeRemove(tn_p->tdata->children,tn_src->tdata->uid);
+                        }
+                        setTypeAdd(tn_dst->tdata->children,tn_src->tdata->uid);
+                        sdsfree(tn_src->tdata->parent);
+                        tn_src->tdata->parent = sdsnew(c->rargv[2]->ptr);  
+                    }
+                    sdsfree(tmp);
+                    
+                } else if (causally_ready(tn_src->tdata->moveVC,move_vc)){
+                    sds tmp = sdsnew(tn_src->tdata->parent);
+                    rtn* tn_p = rtnHTGet(c->db,c->rargv[1],tmp,0);
+                    if (tn_p){
+                        setTypeRemove(tn_p->tdata->children,tn_src->tdata->uid);
+                    }
+                    setTypeAdd(tn_dst->tdata->children,tn_src->tdata->uid);
+                    sdsfree(tn_src->tdata->parent);
+                    tn_src->tdata->parent = sdsnew(c->rargv[2]->ptr); 
+                    sdsfree(tmp);
+                }
+            }
+            updateVC(tn_src->tdata->moveVC,move_vc);
+            deleteVC(r_dst);
+            deleteVC(r_src);
+
+    CRDT_END
+
+
 }
 
 /***********************API接口函数*************************/
