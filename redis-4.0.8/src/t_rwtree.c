@@ -131,11 +131,13 @@ void tRemFunc(client *c, rtn *tn, vc *t)
 {
     if (tn&&removeCheck((reh *) tn, t))
     {
-        rtn* tn_p = rtnHTGet(c->db,c->rargv[1],tn->tdata->parent,0);
+        rtn* tn_p = rtnHTGet(c->db,c->rargv[1],tn->tdata->parent,1);
         REH_RMV_FUNC(tn,t);
         if (tn_p){
             setTypeRemove(tn_p->tdata->children,tn->tdata->uid);
         }
+        sdsfree(tn->tdata->parent);
+        tn->tdata->parent = sdsnew("none");
         
         //notifyLoop(e, c->db);
     }
@@ -602,7 +604,7 @@ void treeNodeMove(client *c, redisDb *db,robj *tname){
                     
                 } else if (causally_ready(tn_src->tdata->moveVC,move_vc)){
                     sds tmp = sdsnew(tn_src->tdata->parent);
-                    rtn* tn_p = rtnHTGet(c->db,c->rargv[1],tmp,0);
+                    rtn* tn_p = rtnHTGet(c->db,c->rargv[1],tmp,1);
                     if (tn_p){
                         setTypeRemove(tn_p->tdata->children,tn_src->tdata->uid);
                     }
@@ -642,4 +644,8 @@ void DeleteCommand(client *c){
 
 void ChangeValueCommand(client *c){
     treeNodeChangeValue(c,c->db,c->argv[1],c->argv[2]);
+}
+
+void MoveCommand(client* c){
+    treeNodeMove(c,c->db,c->argv[1]);
 }

@@ -333,7 +333,7 @@ struct redisCommand redisCommandTable[] = {
     {"treeinsertwithid",InsertWithIdCommand,-5,"wmF",0,NULL,1,1,1,0,0},
     {"treedelete",DeleteCommand,-3,"wF",0,NULL,1,1,1,0,0},
     {"treechangevalue",ChangeValueCommand,-4,"wmF",0,NULL,1,1,1,0,0},
-    //{"treemove",MoveCommand,-4,"wmF",0,NULL,1,1,1,0,0},
+    {"treemove",MoveCommand,-4,"wmF",0,NULL,1,1,1,0,0},
     {"treemembers",treeMembersCommand,2,"rF",0,NULL,1,1,1,0,0},
     //{"subtree",subtreeCommand,3,"rF",0,NULL,1,1,1,0,0}
 };
