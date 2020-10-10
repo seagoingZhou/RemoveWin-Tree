@@ -1,0 +1,3 @@
+cd buildFold
+cmake ..
+make 

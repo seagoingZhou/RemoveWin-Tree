@@ -25,7 +25,7 @@ def redis_exec(conn, *cm, prt=0):
 
 
 def ssh_exec(sshs, cmd):
-    cmd = "cd ~/Github/RemoveWin-Tree/redis_test/;" + cmd + " 1>/dev/null 2>&1"
+    cmd = "cd ~/RemoveWin-Tree/redis_test/;" + cmd + " 1>/dev/null 2>&1"
     for ssh in sshs:
         stdin, stdout, stderr = ssh.exec_command(cmd)
         # data = stdout.read()
@@ -59,14 +59,14 @@ def _reset_redis(sshs):
 
 def _set_delay(ssh, lo_delay, delay, ip1, ip2, limit=100000):
     cmd = (
-        "sudo tc qdisc del dev eth0 root",
-        "sudo tc qdisc add dev eth0 root handle 1: prio",
-        "sudo tc qdisc add dev eth0 parent 1:1 handle 10: netem delay {delay} distribution normal limit {limit}".format(
+        "sudo tc qdisc del dev ens33 root",
+        "sudo tc qdisc add dev ens33 root handle 1: prio",
+        "sudo tc qdisc add dev ens33 parent 1:1 handle 10: netem delay {delay} distribution normal limit {limit}".format(
             delay=delay, limit=limit),
-        "sudo tc qdisc add dev eth0 parent 1:2 handle 20: pfifo_fast",
-        "sudo tc filter del dev eth0",
-        "sudo tc filter add dev eth0 protocol ip parent 1: prio 1 u32 match ip dst {ip1} flowid 1:1".format(ip1=ip1),
-        "sudo tc filter add dev eth0 protocol ip parent 1: prio 1 u32 match ip dst {ip2} flowid 1:1".format(ip2=ip2),
+        "sudo tc qdisc add dev ens33 parent 1:2 handle 20: pfifo_fast",
+        "sudo tc filter del dev ens33",
+        "sudo tc filter add dev ens33 protocol ip parent 1: prio 1 u32 match ip dst {ip1} flowid 1:1".format(ip1=ip1),
+        "sudo tc filter add dev ens33 protocol ip parent 1: prio 1 u32 match ip dst {ip2} flowid 1:1".format(ip2=ip2),
         "sudo tc qdisc del dev lo root",
         "sudo tc qdisc add dev lo root netem delay {lo_delay} distribution normal limit {limit}".format(
             lo_delay=lo_delay, limit=limit)
@@ -150,8 +150,8 @@ class Connection:
         print("delay set.")
 
     def remove_delay(self):
-        cmd = ("sudo tc filter del dev eth0",
-               "sudo tc qdisc del dev eth0 root",
+        cmd = ("sudo tc filter del dev ens33",
+               "sudo tc qdisc del dev ens33 root",
                "sudo tc qdisc del dev lo root")
         for ssh in self.sshs:
             for c in cmd:
@@ -243,32 +243,12 @@ def test():
 
 def main(argv):
     n = 3
-    delay = "50ms 5ms"
-    lo_delay = "10ms 2ms"
-
-    if len(argv) == 1:
-        n = int(argv[0])
-    elif len(argv) == 4:
-        delay = "{}ms {}ms".format(float(argv[0])/2, float(argv[1])/2)
-        lo_delay = "{}ms {}ms".format(float(argv[2])/2, float(argv[3])/2)
-
-    print(n, delay, lo_delay)
-
     c = Connection(n)
 
-    #c.remove_delay()
+    c.remove_delay()
     c.shutdown()
     c.clean()
 
-    # c.reset()
-    time.sleep(2)
-    c.start()
-    time.sleep(2)
-    c.construct_repl()
-    #time.sleep(2)
-    #c.set_delay(lo_delay, delay)
-
-    time.sleep(2)
 
 
 if __name__ == "__main__":
