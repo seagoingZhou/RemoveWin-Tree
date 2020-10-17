@@ -9,6 +9,6 @@ fi
 
 for port in ${ports[*]}
 do
-    ../../redis-4.0.8/src/redis-cli -h 127.0.0.1 -p ${port} SHUTDOWN
+    /Redis/RWTree/redis-4.0.8/src/redis-cli -h 127.0.0.1 -p ${port} SHUTDOWN
     echo "server ${port} shutdown."
 done

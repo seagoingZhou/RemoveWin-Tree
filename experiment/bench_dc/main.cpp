@@ -6,9 +6,9 @@
 
 using namespace std;
 
-const char *ips[3] = {"192.168.192.100",
-                      "192.168.192.101",
-                      "192.168.192.102"};
+const char *ips[3] = {"192.168.192.1",
+                      "192.168.192.2",
+                      "192.168.192.3"};
 
 int DELAY = 20;
 int DELAY_LOW = 5;
@@ -22,7 +22,7 @@ inline void set_default()
     DELAY = 50;
     DELAY_LOW = 10;
     TOTAL_SERVERS = 9;
-    TOTAL_OPS = 400000;
+    TOTAL_OPS = 40000;
     OP_PER_SEC = 4000;
     ROUND = 0;
 }
@@ -308,7 +308,7 @@ void tree_test_dis(const char *dir){
 
 void tree_init(){
     redisReply *reply;
-    redisContext *c = redisConnect("192.168.192.100", 6379);
+    redisContext *c = redisConnect("192.168.192.1", 6379);
     reply = (redisReply *) redisCommand(c,"treecreat t");
     freeReplyObject(reply);
     redisFree(c);

@@ -2,14 +2,14 @@
 
 if [ $# == 0 ]
 then
-    rm -rf *.rdb *.log
+    rm -rf /Redis/*.rdb /Redis/*.log
 else
     ports=($*)
     for port in ${ports[*]}
     do
-        rm -rf ${port}.rdb ${port}.log
+        rm -rf /Redis/${port}.rdb 
+        rm -rf /Redis/${port}.log
         echo "remove ${port} rdb and log files."
     done
 fi
 
-rm -rf ozlog rzlog

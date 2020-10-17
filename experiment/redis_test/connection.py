@@ -24,16 +24,18 @@ def redis_exec(conn, *cm, prt=0):
         print(repr(e))
 
 
-def ssh_exec(sshs, cmd):
-    cmd = "cd ~/Github/RemoveWin-Tree/redis_test/;" + cmd + " 1>/dev/null 2>&1"
+def ssh_exec(sshs, icmd):
+    cmd = "cd /Redis/RWTree/experiment/redis_test/ &&" + icmd + " 1>/dev/null 2>&1"
     for ssh in sshs:
         stdin, stdout, stderr = ssh.exec_command(cmd)
-        # data = stdout.read()
-        # if len(data) > 0:
-        #     print("d", bytes.decode(data.strip()))  # 打印正确结果
-        # err = stderr.read()
-        # if len(err) > 0:
-        #     print(bytes.decode(err.strip()))  # 输出错误结果
+        #stdin.write("0000\n")
+        #stdin.flush()
+        data = stdout.read()
+        if len(data) > 0:
+            print("d", bytes.decode(data.strip()))  # 打印正确结果
+        err = stderr.read()
+        if len(err) > 0:
+            print(bytes.decode(err.strip()))  # 输出错误结果
 
 
 def _reset_redis(sshs):
@@ -59,22 +61,22 @@ def _reset_redis(sshs):
 
 def _set_delay(ssh, lo_delay, delay, ip1, ip2, limit=100000):
     cmd = (
-        "sudo tc qdisc del dev eth0 root",
-        "sudo tc qdisc add dev eth0 root handle 1: prio",
-        "sudo tc qdisc add dev eth0 parent 1:1 handle 10: netem delay {delay} distribution normal limit {limit}".format(
+        "tc qdisc del dev eth0 root",
+        "tc qdisc add dev eth0 root handle 1: prio",
+        "tc qdisc add dev eth0 parent 1:1 handle 10: netem delay {delay} distribution normal limit {limit}".format(
             delay=delay, limit=limit),
-        "sudo tc qdisc add dev eth0 parent 1:2 handle 20: pfifo_fast",
-        "sudo tc filter del dev eth0",
-        "sudo tc filter add dev eth0 protocol ip parent 1: prio 1 u32 match ip dst {ip1} flowid 1:1".format(ip1=ip1),
-        "sudo tc filter add dev eth0 protocol ip parent 1: prio 1 u32 match ip dst {ip2} flowid 1:1".format(ip2=ip2),
-        "sudo tc qdisc del dev lo root",
-        "sudo tc qdisc add dev lo root netem delay {lo_delay} distribution normal limit {limit}".format(
+        "tc qdisc add dev eth0 parent 1:2 handle 20: pfifo_fast",
+        "tc filter del dev eth0",
+        "tc filter add dev eth0 protocol ip parent 1: prio 1 u32 match ip dst {ip1} flowid 1:1".format(ip1=ip1),
+        "tc filter add dev eth0 protocol ip parent 1: prio 1 u32 match ip dst {ip2} flowid 1:1".format(ip2=ip2),
+        "tc qdisc del dev lo root",
+        "tc qdisc add dev lo root netem delay {lo_delay} distribution normal limit {limit}".format(
             lo_delay=lo_delay, limit=limit)
     )
     for c in cmd:
         stdin, stdout, stderr = ssh.exec_command(c, get_pty=True)
-        stdin.write("0000\n")
-        stdin.flush()
+        #stdin.write("0000\n")
+        #stdin.flush()
         '''
         data = stdout.read()
         if len(data) > 0:
@@ -86,9 +88,9 @@ def _set_delay(ssh, lo_delay, delay, ip1, ip2, limit=100000):
 
 class Connection:
     localhost = "127.0.0.1"
-    ips = ("192.168.192.100",
-           "192.168.192.101",
-           "192.168.192.102")
+    ips = ("192.168.192.1",
+           "192.168.192.2",
+           "192.168.192.3")
     ports = (6379, 6380, 6381, 6382, 6383)
     sshs = []
     conns = []
@@ -98,7 +100,7 @@ class Connection:
         for ip in self.ips:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(ip, 22, "zhou", "0000")
+            ssh.connect(ip, 22, "root", "0000")
             self.sshs.append(ssh)
 
     def reset(self):
@@ -106,7 +108,7 @@ class Connection:
 
     def start(self):
         ssh_exec(self.sshs, "./server.sh " + " ".join(str(p) for p in self.ports))
-        time.sleep(3)
+        time.sleep(2)
         for ip in self.ips:
             for port in self.ports:
                 conn = redis.Redis(host=ip, port=port, decode_responses=True)
@@ -115,7 +117,7 @@ class Connection:
 
     def shutdown(self):
         ssh_exec(self.sshs, "./shutdown.sh")
-        time.sleep(8)
+        time.sleep(2)
         print("shutdown.")
 
     def clean(self):
@@ -144,26 +146,28 @@ class Connection:
 
     def set_delay(self, lo_delay, delay):
         _set_delay(self.sshs[0], lo_delay, delay, self.ips[1], self.ips[2])
+        time.sleep(1)
         _set_delay(self.sshs[1], lo_delay, delay, self.ips[2], self.ips[0])
+        time.sleep(1)
         _set_delay(self.sshs[2], lo_delay, delay, self.ips[0], self.ips[1])
-        time.sleep(2)
+        time.sleep(1)
         print("delay set.")
 
     def remove_delay(self):
-        cmd = ("sudo tc filter del dev eth0",
-               "sudo tc qdisc del dev eth0 root",
-               "sudo tc qdisc del dev lo root")
+        cmd = ("tc filter del dev eth0",
+               "tc qdisc del dev eth0 root",
+               "tc qdisc del dev lo root")
         for ssh in self.sshs:
             for c in cmd:
                 stdin, stdout, stderr = ssh.exec_command(c, get_pty=True)
-                stdin.write("0000\n")
-                stdin.flush()
-                # data = stdout.read()
-                # if len(data) > 0:
-                #     print("d", bytes.decode(data.strip()))  # 打印正确结果
-                # err = stderr.read()
-                # if len(err) > 0:
-                #     print(bytes.decode(err.strip()))  # 输出错误结果
+                #stdin.write("0000\n")
+                #stdin.flush()
+                data = stdout.read()
+                if len(data) > 0:
+                    print("d", bytes.decode(data.strip()))  # 打印正确结果
+                err = stderr.read()
+                if len(err) > 0:
+                    print(bytes.decode(err.strip()))  # 输出错误结果
         time.sleep(2)
         print("delay removed.")
 
@@ -256,19 +260,19 @@ def main(argv):
 
     c = Connection(n)
 
-    #c.remove_delay()
+    c.remove_delay()
     c.shutdown()
     c.clean()
 
     # c.reset()
-    time.sleep(2)
+    #time.sleep(1)
+    
     c.start()
-    time.sleep(2)
+    time.sleep(1)
     c.construct_repl()
-    #time.sleep(2)
-    #c.set_delay(lo_delay, delay)
-
-    time.sleep(2)
+    time.sleep(1)
+    c.set_delay(lo_delay, delay)
+    time.sleep(1)
 
 
 if __name__ == "__main__":
