@@ -39,7 +39,48 @@ string set_log::randomKeyGenerator(string set) {
     return res;
 }
 
+void set_log::smembers(string setName, redisReply *reply) {
+    vector<int> record(3);
+    {
+        lock_guard<mutex> lk(mtx);
+        record[0] = setMap[setName].size();
+
+        int readSum = 0;
+        int commonSum = 0;
+
+        if (reply->type == REDIS_REPLY_ARRAY) {
+            readSum = reply->elements;
+            for (int i = 0; i < reply->elements; i++) {
+                char tmpChar[64];
+                strcpy(tmpChar, reply->element[i]->str);
+                string key = string(tmpChar);
+                if (setMap[setName].count(key) > 0) {
+                    ++commonSum;
+                }
+            }
+        }
+        record[1] = readSum;
+        record[2] = commonSum;
+    }
+
+    {
+        lock_guard<mutex> lk(m_mtx);
+        s_log.push_back(record);
+    }
+}
+
 
 void set_log::writeFile(){
+    char n[64], f[64];
+    sprintf(n, "%s/%s:%d,%d,(%d,%d)", dir, type, TOTAL_SERVERS, OP_PER_SEC, DELAY, DELAY_LOW);
+    bench_mkdir(n);
+
+    sprintf(f, "%s/s.tree", n);
+    FILE *setLog = fopen(f, "w");
+    for (vector<int> record : s_log) {
+        fprintf(setLog, "%d %d %d", record[0], record[1], record[2]);
+    }
+    fflush(setLog);
+    fclose(setLog);
     
 }

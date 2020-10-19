@@ -23,6 +23,7 @@ private:
     int setSize;
     int maxKeySize;
     mutex mtx,m_mtx;
+    vector<vector<int>> s_log;
 
 public:
     set_log(const char *type, const char *dir, int size) : rdt_log(type, dir), setSize(size), setNames(size) {

@@ -36,44 +36,6 @@ typedef struct RW_RPQ_element
     //list *ops;
 } rze;
 
-//#define RZADD 0
-//#define RZINCBY 1
-//typedef struct unready_command
-//{
-//    int type;
-//    robj *tname, *element;
-//    double value;
-//    vc *t;
-//} ucmd;
-
-//int rzeSize(rze *e)
-//{
-//    int vcsize = sizeof(vc) + e->current->size * sizeof(int);
-//    int size = sizeof(rze) + vcsize + sizeof(list)
-//               + listLength(e->ops) * (sizeof(listNode) + sizeof(ucmd) + 2 * sizeof(robj) + vcsize);
-//    listNode *ln;
-//    listIter li;
-//    listRewind(e->ops, &li);
-//    while ((ln = listNext(&li)))
-//    {
-//        ucmd *cmd = ln->value;
-//        size += sdsAllocSize(cmd->tname->ptr) + sdsAllocSize(cmd->element->ptr);
-//    }
-//    return size;
-//}
-
-//sds ucmdToSds(ucmd *cmd)
-//{
-//    char *tp[] = {"RZADD", "RZINCBY"};
-//    sds vc_s = VCToSds(cmd->t);
-//    sds s = sdscatprintf(sdsempty(), "%s %s %s %f %s",
-//                         tp[cmd->type],
-//                         (char *) cmd->tname->ptr,
-//                         (char *) cmd->element->ptr,
-//                         cmd->value, vc_s);
-//    sdsfree(vc_s);
-//    return s;
-//}
 
 reh *rzeNew()
 {
@@ -86,67 +48,7 @@ reh *rzeNew()
 }
 
 #define SCORE(e) ((e)->innate+(e)->acquired)
-/*
-// 获得 t 所有权
-ucmd *ucmdNew(int type, robj *tname, robj *element, double value, vc *t)
-{
-    ucmd *cmd = zmalloc(sizeof(ucmd));
-    cmd->type = type;
-    cmd->tname = tname;
-    incrRefCount(tname);
-    cmd->element = element;
-    incrRefCount(element);
-    cmd->value = value;
-    cmd->t = t;
-    return cmd;
-}
 
-void ucmdDelete(ucmd *cmd)
-{
-    decrRefCount(cmd->tname);
-    decrRefCount(cmd->element);
-    deleteVC(cmd->t);
-    zfree(cmd);
-}
-
-int readyCheck(rze *e, vc *t)
-{
-    int *current = e->current->vector;
-    int *next = t->vector;
-    int equal = 1;
-    for (int i = 0; i < t->size; ++i)
-    {
-        if (current[i] > next[i])
-            return 1;
-        if (current[i] < next[i])
-            equal = 0;
-    }
-    return equal;
-}
-
-rze *rzeHTGet(redisDb *db, robj *tname, robj *key, int create)
-{
-    robj *ht = getInnerHT(db, tname->ptr, RW_RPQ_TABLE_SUFFIX, create);
-    if (ht == NULL)return NULL;
-    robj *value = hashTypeGetValueObject(ht, key->ptr);
-    rze *e;
-    if (value == NULL)
-    {
-        if (!create)return NULL;
-        e = (rze *) rzeNew();
-        hashTypeSet(ht, key->ptr, sdsnewlen(&e, sizeof(rze *)), HASH_SET_TAKE_VALUE);
-#ifdef RW_OVERHEAD
-        inc_ovhd_count(cur_db, cur_tname, SUF_RZETOTAL, 1);
-#endif
-    }
-    else
-    {
-        e = *(rze **) (value->ptr);
-        decrRefCount(value);
-    }
-    return e;
-}
-*/
 inline rze *rzeHTGet(redisDb *db, robj *tname, robj *key, int create)
 {
     return (rze *) rehHTGet(db, tname, RW_RPQ_TABLE_SUFFIX, key, create, rzeNew
@@ -193,35 +95,6 @@ void removeFunc(client *c, rze *e, vc *t)
         //notifyLoop(e, c->db);
     }
 }
-/*
-void notifyLoop(rze *e, redisDb *db)
-{
-    listNode *ln;
-    listIter li;
-    listRewind(e->ops, &li);
-    while ((ln = listNext(&li)))
-    {
-        ucmd *cmd = ln->value;
-        if (readyCheck(e, cmd->t))
-        {
-            switch (cmd->type)
-            {
-                case RZADD:
-                    insertFunc(e, db, cmd->tname, cmd->element, cmd->value, cmd->t);
-                    break;
-                case RZINCBY:
-                    increaseFunc(e, db, cmd->tname, cmd->element, cmd->value, cmd->t);
-                    break;
-                default:
-                    serverPanic("unknown rzset cmd type.");
-            }
-            listDelNode(e->ops, ln);
-            ucmdDelete(cmd);
-        }
-    }
-
-*/
-
 
 
 void rzaddCommand(client *c)
