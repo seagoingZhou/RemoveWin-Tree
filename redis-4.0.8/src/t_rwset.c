@@ -46,39 +46,40 @@ inline rwse *rwseHTGet(redisDb *db, robj *tname, robj *key, int create)
     );
 }
 
-void removeFunc(client *c, rwse *e, vc *t, robj *eleName)
-{
-    if (removeCheck((reh *) e, t))
-    {
+void removeFunc(client *c, rwse *e, vc *t, robj *setName, robj *eleName) {
+    if (removeCheck((reh *) e, t)) {
         REH_RMV_FUNC(e,t);
         sdsfree(e->member);
         e->member = NULL;
-        robj* set = getSetOrCreate(c->db, c->rargv[1], c->rargv[2]);
+        robj* set = getSetOrCreate(c->db, setName, eleName->ptr);
         setTypeRemove(set, eleName->ptr);
         server.dirty++;
     }
 }
 
-robj* getSetOrCreate(redisDb *db, robj *setName, robj *eleName) {
+robj* getSetOrCreate(redisDb *db, robj *setName, sds eleSample) {
     robj* set = lookupKeyWrite(db,setName);
     if (set == NULL) {
-        set = setTypeCreate(eleName);
+        set = setTypeCreate(eleSample);
         dbAdd(db,setName,set);
     }
     return set;
 }
 
-void saddGenericCommand(client* c) {
+void saddGenericCommand(client* c, robj* setName) {
     long long added;
     int i;
     int n = c->rargc;
-    robj* set = getSetOrCreate(c->db, c->rargv[1], c->rargv[2]);
     getLongLongFromObject(c->rargv[n - 1], &added);
+    if (added == 0) {
+        return;
+    }
+    robj* set = getSetOrCreate(c->db, setName, c->rargv[n - 3]);
     for (i = 0; i < added; ++i) {
         int idx = n - 2 - 2 * i;
         vc *t = CR_GET(idx);
-        rwse* e = rwseHTGet(c->db, c->rargv[1], c->rargv[idx - 1], 1);
-        removeFunc(c, e, t, c->rargv[idx - 1]);
+        rwse* e = rwseHTGet(c->db, setName, c->rargv[idx - 1], 1);
+        removeFunc(c, e, t, setName, c->rargv[idx - 1]);
         if (insertCheck((reh *) e, t)) {
             PID(e) = t->id;
             e->member = sdsnew(c->rargv[idx - 1]->ptr);
@@ -89,17 +90,20 @@ void saddGenericCommand(client* c) {
     }
 }
 
-void sremGenericCommand(client* c) {
+void sremGenericCommand(client* c, robj* setName) {
+    long long remed;
     int i;
     int n = c->rargc;
-    int eleNums = (n - 2) / 2;
-    robj* set = getSetOrCreate(c->db, c->rargv[1], c->rargv[2]);
-    for (i = 0; i < eleNums; ++i) {
-        int jdx = n - 1 - i;
-        int idx = n - eleNums - 1 - i;
-        vc *t = CR_GET(jdx);
-        rwse* e = rwseHTGet(c->db, c->rargv[1], c->rargv[jdx], 1);
-        removeFunc(c, e, t, c->rargv[jdx]);
+    getLongLongFromObject(c->rargv[n - 1], &remed);
+    if (remed == 0) {
+        return;
+    }
+    robj* set = getSetOrCreate(c->db, setName, c->rargv[n - 3]);
+    for (i = 0; i < remed; ++i) {
+        int idx = n - 2 - 2 * i;
+        vc *t = CR_GET(idx);
+        rwse* e = rwseHTGet(c->db, setName, c->rargv[idx - 1], 1);
+        removeFunc(c, e, t, setName, c->rargv[idx - 1]);
         deleteVC(t);
     }
 }
@@ -119,6 +123,7 @@ void rwsaddCommand(client *c) {
                         ++added;
                         lc *t = LC_NEW(e->current);
                         e->current++;
+                        RARGV_ADD_SDS(c->argv[j]->ptr);
                         RARGV_ADD_SDS(lcToSds(t));
                         zfree(t);
                     }
@@ -129,7 +134,7 @@ void rwsaddCommand(client *c) {
     #ifdef COUNT_OPS
                 ocount++;
     #endif
-                saddGenericCommand(c);
+                saddGenericCommand(c, c->rargv[1]);
         CRDT_END
 
 }
@@ -145,21 +150,108 @@ void rwsremCommand(client *c) {
                     reh *e = rwseHTGet(c->db, c->argv[1], c->argv[j], 1);   
                     lc *t = LC_NEW(e->current);
                     e->current++;
+                    RARGV_ADD_SDS(c->argv[j]->ptr);
                     RARGV_ADD_SDS(lcToSds(t));
                     zfree(t);
                     
                 }
+                RARGV_ADD_SDS(sdsfromlonglong(c->argc - 2));
     
             CRDT_EFFECT
     #ifdef COUNT_OPS
                 ocount++;
     #endif
-                sremGenericCommand(c);
+                sremGenericCommand(c, c->rargv[1]);
         CRDT_END
 
 }
 
+int qsortCompareSetsByCardinality(const void *s1, const void *s2) {
+    if (setTypeSize(*(robj**)s1) > setTypeSize(*(robj**)s2)) return 1;
+    if (setTypeSize(*(robj**)s1) < setTypeSize(*(robj**)s2)) return -1;
+    return 0;
+}
+
+/* This is used by SDIFF and in this case we can receive NULL that should
+ * be handled as empty sets. */
+int qsortCompareSetsByRevCardinality(const void *s1, const void *s2) {
+    robj *o1 = *(robj**)s1, *o2 = *(robj**)s2;
+    unsigned long first = o1 ? setTypeSize(o1) : 0;
+    unsigned long second = o2 ? setTypeSize(o2) : 0;
+
+    if (first < second) return 1;
+    if (first > second) return -1;
+    return 0;
+}
+
+void sunionResult(client *c, robj **setkeys, int setnum, robj *dstset) {
+    robj **sets = zmalloc(sizeof(robj*)*setnum);
+    setTypeIterator *si;
+    sds ele;
+    int j;
+
+    for (j = 0; j < setnum; j++) {
+        robj *setobj = lookupKeyRead(c->db, setkeys[j]);
+        if (!setobj) {
+            sets[j] = NULL;
+            continue;
+        }
+        if (checkType(c, setobj, OBJ_SET)) {
+            zfree(sets);
+            return;
+        }
+        sets[j] = setobj;
+    }
+    /* Union is trivial, just add every element of every set to the
+        * temporary set. */
+    for (j = 0; j < setnum; j++) {
+        if (!sets[j]) continue; /* non existing keys are like empty sets */
+        si = setTypeInitIterator(sets[j]);
+        while((ele = setTypeNextObject(si)) != NULL) {
+            setTypeAdd(dstset,ele);
+            sdsfree(ele);
+        }
+        setTypeReleaseIterator(si);
+    }
+    zfree(sets);
+}
+
+
 void rwsunionstoreCommand(client *c) {
+    #ifdef RW_OVERHEAD
+        PRE_SET;
+    #endif
+        CRDT_BEGIN
+            CRDT_PREPARE
+                robj* dstset = createIntsetObject();
+                sunionResult(c, c->argv + 2, c->argc - 2, dstset);
+                setTypeIterator *si;
+                sds ele;
+                int added = 0;
+                si = setTypeInitIterator(dstset);
+                while((ele = setTypeNextObject(si)) != NULL) {
+                    robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
+                    reh *e = rwseHTGet(c->db, c->argv[1], eleObj->ptr, 1);
+                    if (!EXISTS(e)) {
+                        ++added;
+                        lc *t = LC_NEW(e->current);
+                        e->current++;
+                        RARGV_ADD_SDS(sdsnew(ele));
+                        RARGV_ADD_SDS(lcToSds(t));
+                        zfree(t);
+                    }
+                    sdsfree(ele);
+                }
+                setTypeReleaseIterator(si);
+                
+                RARGV_ADD_SDS(sdsfromlonglong(added));
+    
+            CRDT_EFFECT
+    #ifdef COUNT_OPS
+                ocount++;
+    #endif
+                saddGenericCommand(c, c->rargv[1]);
+        CRDT_END
 
 }
 
