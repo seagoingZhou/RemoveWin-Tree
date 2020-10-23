@@ -216,6 +216,76 @@ void sunionResult(client *c, robj **setkeys, int setnum, robj *dstset) {
     zfree(sets);
 }
 
+void sinterResult(client *c, robj **setkeys, int setnum, robj *dstset) {
+    robj **sets = zmalloc(sizeof(robj*)*setnum);
+    setTypeIterator *si;
+    sds elesds;
+    int64_t intobj;
+    int j;
+    int encoding;
+
+    for (j = 0; j < setnum; j++) {
+        robj *setobj = lookupKeyRead(c->db, setkeys[j]);
+        if (!setobj) {
+            sets[j] = NULL;
+            continue;
+        }
+        if (checkType(c, setobj, OBJ_SET)) {
+            zfree(sets);
+            return;
+        }
+        sets[j] = setobj;
+    }
+    /* Sort sets from the smallest to largest, this will improve our
+     * algorithm's performance */
+    qsort(sets,setnum,sizeof(robj*),qsortCompareSetsByCardinality);
+
+    /* Iterate all the elements of the first (smallest) set, and test
+     * the element against all the other sets, if at least one set does
+     * not include the element it is discarded */
+    si = setTypeInitIterator(sets[0]);
+    while((encoding = setTypeNext(si,&elesds,&intobj)) != -1) {
+        for (j = 1; j < setnum; j++) {
+            if (sets[j] == sets[0]) continue;
+            if (encoding == OBJ_ENCODING_INTSET) {
+                /* intset with intset is simple... and fast */
+                if (sets[j]->encoding == OBJ_ENCODING_INTSET &&
+                    !intsetFind((intset*)sets[j]->ptr,intobj))
+                {
+                    break;
+                /* in order to compare an integer with an object we
+                 * have to use the generic function, creating an object
+                 * for this */
+                } else if (sets[j]->encoding == OBJ_ENCODING_HT) {
+                    elesds = sdsfromlonglong(intobj);
+                    if (!setTypeIsMember(sets[j],elesds)) {
+                        sdsfree(elesds);
+                        break;
+                    }
+                    sdsfree(elesds);
+                }
+            } else if (encoding == OBJ_ENCODING_HT) {
+                if (!setTypeIsMember(sets[j],elesds)) {
+                    break;
+                }
+            }
+        }
+
+        /* Only take action when all sets contain the member */
+        if (j == setnum) { 
+            if (encoding == OBJ_ENCODING_INTSET) {
+                elesds = sdsfromlonglong(intobj);
+                setTypeAdd(dstset,elesds);
+                sdsfree(elesds);
+            } else {
+                setTypeAdd(dstset,elesds);
+            } 
+        }
+    }
+    setTypeReleaseIterator(si);
+    zfree(sets);
+}
+
 
 void rwsunionstoreCommand(client *c) {
     #ifdef RW_OVERHEAD
@@ -243,7 +313,7 @@ void rwsunionstoreCommand(client *c) {
                     sdsfree(ele);
                 }
                 setTypeReleaseIterator(si);
-                
+                decrRefCount(dstset);
                 RARGV_ADD_SDS(sdsfromlonglong(added));
     
             CRDT_EFFECT
@@ -255,10 +325,87 @@ void rwsunionstoreCommand(client *c) {
 
 }
 
-void rwsinsterstoreCommand(client *c) {
+
+void rwsdiffstoreCommand(client *c) {
+    #ifdef RW_OVERHEAD
+        PRE_SET;
+    #endif
+        CRDT_BEGIN
+            CRDT_PREPARE
+                robj *dstset = createIntsetObject();
+                robj *set = lookupKeyRead(c->db, c->argv[1]);
+                sunionResult(c, c->argv + 3, c->argc - 3, dstset);
+                setTypeIterator *si;
+                sds ele;
+                int remed = 0;
+                si = setTypeInitIterator(dstset);
+                while((ele = setTypeNextObject(si)) != NULL) {
+                    robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
+                    if (setTypeIsMember(set, ele)) {
+                        reh *e = rwseHTGet(c->db, c->argv[1], eleObj->ptr, 1);
+                        if (EXISTS(e)) {
+                            ++remed;
+                            lc *t = LC_NEW(e->current);
+                            e->current++;
+                            RARGV_ADD_SDS(sdsnew(ele));
+                            RARGV_ADD_SDS(lcToSds(t));
+                            zfree(t);
+                        }
+
+                    }
+                    sdsfree(ele);
+                }
+                setTypeReleaseIterator(si);
+                decrRefCount(dstset);
+                RARGV_ADD_SDS(sdsfromlonglong(remed));
+    
+            CRDT_EFFECT
+    #ifdef COUNT_OPS
+                ocount++;
+    #endif
+                sremGenericCommand(c, c->rargv[1]);
+        CRDT_END
 
 }
 
-void rwsdiffstoreCommand(client *c) {
+void rwsinsterstoreCommand(client *c) {
+    #ifdef RW_OVERHEAD
+        PRE_SET;
+    #endif
+        CRDT_BEGIN
+            CRDT_PREPARE
+                robj *dstset = createIntsetObject();
+                robj *set = lookupKeyRead(c->db, c->argv[1]);
+                sinterResult(c, c->argv + 3, c->argc - 3, dstset);
+                setTypeIterator *si;
+                sds ele;
+                int remed = 0;
+                si = setTypeInitIterator(set);
+                while((ele = setTypeNextObject(si)) != NULL) {
+                    robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
+                    if (!setTypeIsMember(dstset, ele)) {
+                        reh *e = rwseHTGet(c->db, c->argv[1], eleObj->ptr, 1);
+                        if (EXISTS(e)) {
+                            ++remed;
+                            lc *t = LC_NEW(e->current);
+                            e->current++;
+                            RARGV_ADD_SDS(sdsnew(ele));
+                            RARGV_ADD_SDS(lcToSds(t));
+                            zfree(t);
+                        }
+
+                    }
+                    sdsfree(ele);
+                }
+                setTypeReleaseIterator(si);
+                decrRefCount(dstset);
+                RARGV_ADD_SDS(sdsfromlonglong(remed));
+    
+            CRDT_EFFECT
+    #ifdef COUNT_OPS
+                ocount++;
+    #endif
+                sremGenericCommand(c, c->rargv[1]);
+        CRDT_END
 
 }
