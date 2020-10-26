@@ -6,6 +6,40 @@
 using namespace std;
 
 
+
+
+void set_log::sadd(string setName, string key) {
+    lock_guard<mutex> lk(mtx);
+    setMap[setName].insert(key);
+}
+
+void set_log::srem(string setName, string key) {
+    lock_guard<mutex> lk(mtx);
+    setMap[setName].erase(key);
+}
+
+void set_log::sunion(string setDst, string setSrc) {
+    lock_guard<mutex> lk(mtx);
+    for (auto key = setMap[setSrc].begin(); key!=setMap[setSrc].end(); key++) {
+        setMap[setDst].insert(*key);
+    }
+}
+void set_log::sinter(string setDst, string setSrc) {
+    lock_guard<mutex> lk(mtx);
+    for (auto key = setMap[setDst].begin(); key!=setMap[setDst].end(); key++) {
+        if (!setMap[setSrc].count(*key)) {
+            setMap[setDst].erase(*key);
+        }
+    }
+
+}
+void set_log::sdiff(string setDst, string setSrc) {
+    lock_guard<mutex> lk(mtx);
+    for (auto key = setMap[setSrc].begin(); key!=setMap[setSrc].end(); key++) {
+        setMap[setDst].erase(*key);
+    }
+}
+
 string set_log::randomSetGet() {
     lock_guard<mutex> lk(mtx);
     int idx = intRand(setSize);

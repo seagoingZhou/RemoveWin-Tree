@@ -3,12 +3,16 @@
 
 #include "exp_runner.h"
 #include "tree/tree_generator.h"
+#include "tree/tree_cmd.h"
+#include "set/set_cmd.h"
 
 using namespace std;
 
 const char *ips[3] = {"192.168.192.1",
                       "192.168.192.2",
                       "192.168.192.3"};
+
+
 
 int DELAY = 20;
 int DELAY_LOW = 5;
@@ -22,8 +26,8 @@ inline void set_default()
     DELAY = 50;
     DELAY_LOW = 10;
     TOTAL_SERVERS = 9;
-    TOTAL_OPS = 40000;
-    OP_PER_SEC = 4000;
+    TOTAL_OPS = 100000000;
+    OP_PER_SEC = 10000;
     ROUND = 0;
 }
 
@@ -47,6 +51,58 @@ inline void set_delay(int hd, int ld)
     DELAY = hd;
     DELAY_LOW = ld;
     TOTAL_OPS = 10000000;
+}
+
+
+void tree_test_dis(const char *dir){
+    tree_log tlog("rw",dir);
+    tree_generator gen(tlog);
+    tree_cmd read_members(treemembers,"","","",tlog);
+
+    exp_runner<string> runner(tlog,gen);
+    runner.set_cmd_read(read_members);
+    runner.run();
+}
+
+void tree_init(){
+    redisReply *reply;
+    redisContext *c = redisConnect("192.168.192.1", 6379);
+    reply = (redisReply *) redisCommand(c,"treecreat t");
+    freeReplyObject(reply);
+    redisFree(c);
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+}
+
+void tree_experiment()
+{
+    timeval t1{}, t2{};
+    gettimeofday(&t1, nullptr);
+
+    set_default();
+    system("python3.6 ../redis_test/connection.py");
+    tree_init();
+    tree_test_dis("../result/RawData");
+    
+/*
+    for (int i = 0; i < 30; i++)
+    {
+        test_delay(i);
+        test_replica(i);
+        test_speed(i);
+    }
+*/
+    gettimeofday(&t2, nullptr);
+    double time_diff_sec = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
+    printf("total time: %f\n", time_diff_sec);
+}
+
+int main(int argc, char *argv[])
+{
+    //time_max();
+    //test_count_dis_one(ips[0],6379);
+    tree_experiment();
+
+    return 0;
 }
 
 /*
@@ -295,55 +351,3 @@ void test_speed(int round)
     }
 }
 */
-
-void tree_test_dis(const char *dir){
-    tree_log tlog("rw",dir);
-    tree_generator gen(tlog);
-    tree_cmd read_members(treemembers,"","","",tlog);
-
-    exp_runner<string> runner(tlog,gen);
-    runner.set_cmd_read(read_members);
-    runner.run();
-}
-
-void tree_init(){
-    redisReply *reply;
-    redisContext *c = redisConnect("192.168.192.1", 6379);
-    reply = (redisReply *) redisCommand(c,"treecreat t");
-    freeReplyObject(reply);
-    redisFree(c);
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-}
-
-void tree_experiment()
-{
-    timeval t1{}, t2{};
-    gettimeofday(&t1, nullptr);
-
-    set_default();
-    system("python3.6 ../redis_test/connection.py");
-    tree_init();
-    tree_test_dis("../result/RawData");
-    
-/*
-    for (int i = 0; i < 30; i++)
-    {
-        test_delay(i);
-        test_replica(i);
-        test_speed(i);
-    }
-*/
-    gettimeofday(&t2, nullptr);
-    double time_diff_sec = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
-    printf("total time: %f\n", time_diff_sec);
-}
-
-int main(int argc, char *argv[])
-{
-    //time_max();
-    //test_count_dis_one(ips[0],6379);
-
-    tree_experiment();
-
-    return 0;
-}

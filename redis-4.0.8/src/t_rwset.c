@@ -261,7 +261,7 @@ void sinterResult(client *c, robj **setkeys, int setnum, robj *dstset) {
                     if (!setTypeIsMember(sets[j],elesds)) {
                         sdsfree(elesds);
                         break;
-                    }
+                    } 
                     sdsfree(elesds);
                 }
             } else if (encoding == OBJ_ENCODING_HT) {

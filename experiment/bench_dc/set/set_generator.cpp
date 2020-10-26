@@ -2,7 +2,7 @@
 
 void set_generator::gen_and_exec(redisContext *c)
 {
-    op_type t;
+    set_op_type t;
     string set0;
     string set1;
     string key;

@@ -13,15 +13,22 @@ private:
     string uid;
     string value;
     tree_log &ele;
+    timeval tStart{};
+    timeval tEnd{};
 
 public:
 
+    
+
     tree_cmd(op_type t,string pid,string uid,string value,tree_log &em)
-     : t(t),pid(pid),uid(uid),value(value), ele(em) {}
+     : t(t),pid(pid),uid(uid),value(value), ele(em) {
+         gettimeofday(&tStart, nullptr);
+     }
 
     tree_cmd(const tree_cmd &c) = default;
 
     void exec(redisContext *c) override;
+
 };
 
 

@@ -28,6 +28,9 @@ void tree_cmd::exec(redisContext *c)
     if (r == nullptr)
     {
         printf("host %s:%d terminated.\nexecuting %s\n", c->tcp.host, c->tcp.port, tmp);
+        gettimeofday(&tEnd, nullptr);
+        double time_diff_sec = (tEnd.tv_sec - tStart.tv_sec) + (tEnd.tv_usec - tStart.tv_usec) / 1000000.0;
+        printf("total time: %f\n", time_diff_sec);
         exit(-1);
     }
 
