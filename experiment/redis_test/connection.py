@@ -247,7 +247,7 @@ def test():
 
 def main(argv):
     n = 3
-    delay = "50ms 5ms"
+    delay = "100ms 5ms"
     lo_delay = "10ms 2ms"
 
     if len(argv) == 1:

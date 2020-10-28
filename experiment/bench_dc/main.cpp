@@ -58,6 +58,7 @@ void tree_test_dis(const char *dir){
     tree_log tlog("rw",dir);
     tree_generator gen(tlog);
     tree_cmd read_members(treemembers,"","","",tlog);
+    tree_cmd::setStartTime();
 
     exp_runner<string> runner(tlog,gen);
     runner.set_cmd_read(read_members);

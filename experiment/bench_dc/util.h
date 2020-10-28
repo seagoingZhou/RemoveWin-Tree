@@ -69,7 +69,7 @@ public:
 class cmd
 {
 public:
-    virtual void exec(redisContext *c) = 0;
+    virtual int exec(redisContext *c) = 0;
 };
 
 template<class T>
@@ -144,7 +144,7 @@ protected:
     }
 
 public:
-    virtual void gen_and_exec(redisContext *c) = 0;
+    virtual int gen_and_exec(redisContext *c) = 0;
 
     void stop_and_join()
     {

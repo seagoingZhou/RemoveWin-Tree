@@ -7,6 +7,7 @@
 
 #include <ctime>
 #include <thread>
+#include <unordered_map>
 
 #include "util.h"
 #include "constants.h"
@@ -36,35 +37,35 @@ private:
     vector<thread *> thds;
     vector<task_queue *> tasks;
 
-    void conn_one_server_timed(const char *ip, int port)
-    {
-        for (int i = 0; i < THREAD_PER_SERVER; ++i)
-        {
+    int conn_one_server_timed(const char *ip, int port) {
+        int ret = 0;
+        for (int i = 0; i < THREAD_PER_SERVER; ++i) {
             auto task = new task_queue();
-            auto t = new thread([this, ip, port, task] {
+            auto t = new thread([this, ip, port, task, &ret] {
                 redisContext *c = redisConnect(ip, port);
                 if (c == nullptr || c->err)
                 {
-                    if (c)
-                    {
+                    if (c) {
                         printf("Error: %s, ip:%s, port:%d\n", c->errstr, ip, port);
-                    }
-                    else
-                    {
+                    } else {
                         printf("Can't allocate redis context\n");
                     }
                     exit(-1);
                 }
-                for (int times = 0; times < OP_PER_THREAD; ++times)
-                {
+                for (int times = 0; times < OP_PER_THREAD; ++times) {
                     task->worker();
-                    gen.gen_and_exec(c);
+                    ret = gen.gen_and_exec(c);
+                    if (ret == -1) {
+                        break;
+                    }
                 }
                 redisFree(c);
             });
             thds.emplace_back(t);
             tasks.emplace_back(task);
         }
+
+        return ret;
     }
 
 public:
@@ -86,22 +87,26 @@ public:
         opcount_cmd = &opcountCmd;
     }
 
-    void run()
-    {
+    int run() {
+        int ret = 0;
         timeval t1{}, t2{};
         gettimeofday(&t1, nullptr);
 
-        for (auto ip:ips)
-            for (int i = 0; i < (TOTAL_SERVERS / 3); ++i)
-                conn_one_server_timed(ip, 6379 + i);
+        for (auto ip:ips) {
+            for (int i = 0; i < (TOTAL_SERVERS / 3); ++i) {
+                ret = conn_one_server_timed(ip, 6379 + i);
+                if (ret = -1) {
+                    return ret;
+                }
+            }
+        }
+                
 
         thread timer([this] {
             timeval td{}, tn{};
             gettimeofday(&td, nullptr);
-            for (int times = 0; times < OP_PER_THREAD; ++times)
-            {
-                for (auto t:tasks)
-                {
+            for (int times = 0; times < OP_PER_THREAD; ++times) {
+                for (auto t:tasks) {
                     t->add();
                 }
                 //this_thread::sleep_for(chrono::microseconds((int)SLEEP_TIME));
@@ -116,17 +121,46 @@ public:
         volatile bool rb, ob;
         thread *read_thread = nullptr, *ovhd_thread = nullptr;
 
-        if (read_cmd!=nullptr)
-        {
+        if (read_cmd!=nullptr) {
             rb = true;
-            read_thread = new thread([this, &rb] {
-                redisContext *c1 = redisConnect(ips[0], 6379);
-                while (rb)
-                {
-                    this_thread::sleep_for(chrono::seconds(TIME_MAX));
-                    read_cmd->exec(c1);
+            
+            read_thread = new thread([this, &rb, &ret] {
+                unordered_map<string, vector<redisContext *>> clientPool;
+                for (auto ip:ips) {
+                    vector<redisContext *> ports;
+                    string keyIp = string(ip);
+                    clientPool[keyIp] = ports;
+                    for (int i = 0; i < (TOTAL_SERVERS / 3); ++i) {
+                        redisContext *c = redisConnect(ip, 6379 + i);
+                        clientPool[keyIp].push_back(c);
+                    }
                 }
-                redisFree(c1);
+                while (rb) {
+                    
+                    for (auto ip:ips) {
+                        if (!rb || ret == -1) {
+                            break;
+                        }
+                        string keyIp = string(ip);
+                        for (int i = 0; i < (TOTAL_SERVERS / 3) && rb; ++i) {
+                            redisContext *c1 = clientPool[keyIp][i];
+                            this_thread::sleep_for(chrono::seconds(TIME_MAX));
+                            ret = read_cmd->exec(c1);
+                            if (ret == -1) {
+                                break;
+                            }
+                        }
+                    } 
+                }
+                for (auto ip:ips) {
+                    vector<redisContext *> ports;
+                    string keyIp = string(ip);
+                    clientPool[keyIp] = ports;
+                    for (int i = 0; i < (TOTAL_SERVERS / 3); ++i) {
+                        redisContext *c1 = clientPool[keyIp][i];
+                        redisFree(c1);
+                    }
+                }
             });
         }
 
@@ -179,6 +213,7 @@ public:
             delete t;
 
         this_thread::sleep_for(chrono::seconds(5));
+        return ret;
     }
 };
 

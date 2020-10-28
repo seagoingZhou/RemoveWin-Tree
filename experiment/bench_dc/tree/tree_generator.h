@@ -12,55 +12,6 @@
 class tree_generator : public generator<string>
 {
 private:
-    /*
-    class e_inf
-    {
-        unordered_set<int> h;
-        vector<int> a;
-        mutex mtx;
-    public:
-        void add(int name)
-        {
-            mtx.lock();
-            if (h.find(name) == h.end())
-            {
-                h.insert(name);
-                a.push_back(name);
-            }
-            mtx.unlock();
-        }
-
-        int get()
-        {
-            int r;
-            mtx.lock();
-            if (a.empty())
-                r = -1;
-            else
-                r = a[intRand(static_cast<const int>(a.size()))];
-            mtx.unlock();
-            return r;
-        }
-
-        void rem(int name)
-        {
-            mtx.lock();
-            auto f = h.find(name);
-            if (f != h.end())
-            {
-                h.erase(f);
-                for (auto it = a.begin(); it != a.end(); ++it)
-                    if (*it == name)
-                    {
-                        a.erase(it);
-                        break;
-                    }
-            }
-            mtx.unlock();
-        }
-    };
-    */
-
     record_for_collision add, rem, change;
     tree_log &ele;
     Uid *uid;
@@ -106,7 +57,7 @@ public:
         start_maintaining_records();
     }
 
-    void gen_and_exec(redisContext *c) override;
+    int gen_and_exec(redisContext *c) override;
 
 };
 

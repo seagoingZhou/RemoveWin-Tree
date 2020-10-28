@@ -2,7 +2,7 @@
 #include <string.h>
 
 
-void tree_cmd::exec(redisContext *c)
+int tree_cmd::exec(redisContext *c)
 {
     //char name[128];
     //sprintf(name, "%ss%d", rpq_cmd_prefix[zt], OP_PER_SEC);
@@ -28,10 +28,8 @@ void tree_cmd::exec(redisContext *c)
     if (r == nullptr)
     {
         printf("host %s:%d terminated.\nexecuting %s\n", c->tcp.host, c->tcp.port, tmp);
-        gettimeofday(&tEnd, nullptr);
-        double time_diff_sec = (tEnd.tv_sec - tStart.tv_sec) + (tEnd.tv_usec - tStart.tv_usec) / 1000000.0;
-        printf("total time: %f\n", time_diff_sec);
-        exit(-1);
+        showTotalTime();
+        return -1;
     }
 
     
@@ -52,8 +50,15 @@ void tree_cmd::exec(redisContext *c)
         case treemembers:
         {
             ele.members(r);
+            printf("host %s:%d executing %s\n", c->tcp.host, c->tcp.port, tmp);
             break;
         }
     }
+
     freeReplyObject(r);
+    return 0;
 }
+
+mutex tree_cmd::mtx;
+timeval tree_cmd::tStart{};
+timeval tree_cmd::tEnd{};

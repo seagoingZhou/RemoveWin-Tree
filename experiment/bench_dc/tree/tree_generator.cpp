@@ -1,6 +1,6 @@
 #include "tree_generator.h"
 
-void tree_generator::gen_and_exec(redisContext *c)
+int tree_generator::gen_and_exec(redisContext *c)
 {
     op_type t;
     string pid;
@@ -95,5 +95,6 @@ void tree_generator::gen_and_exec(redisContext *c)
             
         }
     }
-    tree_cmd(t, pid, uid, value, ele).exec(c);
+    int ret = tree_cmd(t, pid, uid, value, ele).exec(c);
+    return ret;
 }
