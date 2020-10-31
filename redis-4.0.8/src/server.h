@@ -2026,6 +2026,7 @@ void vcincCommand(client *c);
 
 int checkArgcAndZsetType(client *c, int max);
 robj *getZsetOrCreate(redisDb *db, robj *zset_name, robj *element_name);
+robj* getSetOrCreate(redisDb *db, robj *setName, sds eleSample);
 
 //#define RPQ_LOG
 #ifdef RPQ_LOG

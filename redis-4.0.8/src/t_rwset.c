@@ -121,11 +121,8 @@ void rwsaddCommand(client *c) {
                     reh *e = rwseHTGet(c->db, c->argv[1], c->argv[j], 1);
                     if (!EXISTS(e)) {
                         ++added;
-                        lc *t = LC_NEW(e->current);
-                        e->current++;
                         RARGV_ADD_SDS(c->argv[j]->ptr);
-                        RARGV_ADD_SDS(lcToSds(t));
-                        zfree(t);
+                        ADD_CR_NON_RMV(e);
                     }
                 }
                 RARGV_ADD_SDS(sdsfromlonglong(added));
@@ -148,11 +145,8 @@ void rwsremCommand(client *c) {
                 int j;
                 for (j = 2; j < c->argc; j++) {
                     reh *e = rwseHTGet(c->db, c->argv[1], c->argv[j], 1);   
-                    lc *t = LC_NEW(e->current);
-                    e->current++;
                     RARGV_ADD_SDS(c->argv[j]->ptr);
-                    RARGV_ADD_SDS(lcToSds(t));
-                    zfree(t);
+                    ADD_CR_RMV(e);
                     
                 }
                 RARGV_ADD_SDS(sdsfromlonglong(c->argc - 2));
@@ -303,12 +297,9 @@ void rwsunionstoreCommand(client *c) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
                     reh *e = rwseHTGet(c->db, c->argv[1], eleObj->ptr, 1);
                     if (!EXISTS(e)) {
-                        ++added;
-                        lc *t = LC_NEW(e->current);
-                        e->current++;
+                        ++added;                      
                         RARGV_ADD_SDS(sdsnew(ele));
-                        RARGV_ADD_SDS(lcToSds(t));
-                        zfree(t);
+                        ADD_CR_NON_RMV(e);
                     }
                     sdsfree(ele);
                 }
@@ -345,11 +336,8 @@ void rwsdiffstoreCommand(client *c) {
                         reh *e = rwseHTGet(c->db, c->argv[1], eleObj->ptr, 1);
                         if (EXISTS(e)) {
                             ++remed;
-                            lc *t = LC_NEW(e->current);
-                            e->current++;
                             RARGV_ADD_SDS(sdsnew(ele));
-                            RARGV_ADD_SDS(lcToSds(t));
-                            zfree(t);
+                            ADD_CR_RMV(e);
                         }
 
                     }
@@ -387,11 +375,8 @@ void rwsinsterstoreCommand(client *c) {
                         reh *e = rwseHTGet(c->db, c->argv[1], eleObj->ptr, 1);
                         if (EXISTS(e)) {
                             ++remed;
-                            lc *t = LC_NEW(e->current);
-                            e->current++;
                             RARGV_ADD_SDS(sdsnew(ele));
-                            RARGV_ADD_SDS(lcToSds(t));
-                            zfree(t);
+                            ADD_CR_RMV(e);
                         }
 
                     }
