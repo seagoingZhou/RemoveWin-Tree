@@ -1,5 +1,6 @@
 #include "server.h"
 #include "RWFramework.h"
+#include "crdt_set_common.h"
 
 #define RW_SET_TABLE_SUFFIX "_rwsets_"
 
@@ -302,6 +303,7 @@ void rwsunionstoreCommand(client *c) {
                         ADD_CR_NON_RMV(e);
                     }
                     sdsfree(ele);
+                    decrRefCount(eleObj);
                 }
                 setTypeReleaseIterator(si);
                 decrRefCount(dstset);
@@ -342,6 +344,7 @@ void rwsdiffstoreCommand(client *c) {
 
                     }
                     sdsfree(ele);
+                    decrRefCount(eleObj);
                 }
                 setTypeReleaseIterator(si);
                 decrRefCount(dstset);
@@ -381,6 +384,7 @@ void rwsinsterstoreCommand(client *c) {
 
                     }
                     sdsfree(ele);
+                    decrRefCount(eleObj);
                 }
                 setTypeReleaseIterator(si);
                 decrRefCount(dstset);

@@ -2,10 +2,10 @@
 #include "RWFramework.h"
 #include "crdt_set_common.h"
 
-#define OR_SET_TABLE_SUFFIX "_orsets_"
+#define PN_SET_TABLE_SUFFIX "_pnsets_"
 
-#ifdef OR_OVERHEAD
-#define SUF_RZETOTAL "orsetotal"
+#ifdef PN_OVERHEAD
+#define SUF_RZETOTAL "pnsetotal"
 static redisDb *cur_db = NULL;
 static sds cur_tname = NULL;
 #endif
@@ -15,86 +15,51 @@ static int rcount = 0;
 #endif
 
 #ifdef SET_LOG
-static FILE *orsLog = NULL;
+static FILE *pnsLog = NULL;
 #define check(f)\
     do\
     {\
         if((f)==NULL)\
-            (f)=fopen("orsLog","a");\
+            (f)=fopen("pnsLog","a");\
     }while(0)
 #endif
 
-typedef struct OR_SET_element
+typedef struct PN_SET_element
 {
     int current;
-    list *aset; 
-    list *rset;
-} ore;
+} pne;
 
-ore *oreNew()
+pne *pneNew()
 {
-    ore *e = zmalloc(sizeof(ore));
+    pne *e = zmalloc(sizeof(pne));
     e->current = 0;
-    e->aset = listCreate();
-    e->rset = listCreate();
     return e;
 }
 
-sds tagGenerate(lc* tag) {
-    return sdscatprintf(sdsempty(), "%d,%d", tag->id, tag->x);
-}
-
-ore *oreHTGet(redisDb *db, robj *tname, robj *key, int create)
+pne *pneHTGet(redisDb *db, robj *tname, robj *key, int create)
 {
-    robj *ht = getInnerHT(db, tname->ptr, OR_SET_TABLE_SUFFIX, create);
+    robj *ht = getInnerHT(db, tname->ptr, PN_SET_TABLE_SUFFIX, create);
     if (ht == NULL)return NULL;
     robj *value = hashTypeGetValueObject(ht, key->ptr);
-    ore *e;
+    pne *e;
     if (value == NULL)
     {
         if (!create)return NULL;
-        e = oreNew();
-        hashTypeSet(ht, key->ptr, sdsnewlen(&e, sizeof(ore *)), HASH_SET_TAKE_VALUE);
-#ifdef RW_OVERHEAD
+        e = pneNew();
+        hashTypeSet(ht, key->ptr, sdsnewlen(&e, sizeof(pne *)), HASH_SET_TAKE_VALUE);
+#ifdef PN_OVERHEAD
         inc_ovhd_count(cur_db, cur_tname, SUF_OZETOTAL, 1);
 #endif
     }
     else
     {
-        e = *(ore **) (value->ptr);
+        e = *(pne **) (value->ptr);
         decrRefCount(value);
     }
     return e;
 }
 
-inline void addTag(list *list, sds tag) {
-    sds itag = sdsnew(tag);
-    istAddNodeTail(list, itag);
-}
-
-inline int lookup(ore* e) {
-    return listLength(e->aset);
-}
-
-int removeTag(list *list, sds tag) {
-    int ret = 0;
-    listNode *ln;
-    listIter li;
-    listRewind(list, &li);
-    while ((ln = listNext(&li)))
-    {
-        sds itag = ln->value;
-        if (sdscmp(tag, itag) == 0){
-            sdsfree(itag);
-            listDelNode(list, ln);
-            ret = 1;
-            break;
-        }
-    }
-    return ret;
-}
-
-void orsaddGenericCommand(client* c, robj* setName) {
+void pnsaddGenericCommand(client* c, robj* setName) {
     long long added;
     int i;
     int n = c->rargc;
@@ -105,18 +70,17 @@ void orsaddGenericCommand(client* c, robj* setName) {
     robj* set = getSetOrCreate(c->db, setName, c->rargv[n - 3]);
     for (i = 0; i < added; ++i) {
         int idx = n - 3 - 2 * i;
-        ore *e = oreHTGet(c->db, c->rargv[1], c->rargv[idx], 1);
-        sds tag = c->rargv[idx + 1]->ptr;
-        if (!removeTag(e->rset, tag)) {
-            addTag(e->aset, tag);
-        }
-        if (lookup(e) > 0) {
+        pne* e = pneHTGet(c->db, setName, c->rargv[idx], 1);
+        long long cnt;
+        getLongLongFromObject(c->rargv[idx + 1], &cnt);
+        e->current += cnt;
+        if (e->current > 0) {
             setTypeAdd(set, c->rargv[idx]->ptr);
         }
     }
 }
 
-void orsremGenericCommand(client* c, robj* setName) {
+void pnsremGenericCommand(client* c, robj* setName) {
     long long remed;
     int i;
     int n = c->rargc;
@@ -124,35 +88,19 @@ void orsremGenericCommand(client* c, robj* setName) {
     if (remed == 0) {
         return;
     }
-    
-    int jdx = n - 2;
-    int tagNum;
-    getLongLongFromObject(c->rargv[jdx], &tagNum);
-    int idx = jdx - tagNum - 1;
-    robj* set = getSetOrCreate(c->db, setName, c->rargv[idx]);
-    while (remed > 0) {
-        ore *e = oreHTGet(c->db, c->rargv[1], c->rargv[idx], 1);
-        for (i = idx + 1; i < jdx; ++i) {
-            sds tag = c->rargv[i]->ptr;
-            if (!removeTag(e->aset, tag)) {
-                addTag(e->rset, tag);
-            }
-        }
-        if (lookup(e) == 0) {
+    robj* set = getSetOrCreate(c->db, setName, c->rargv[n - 2]);
+    for (i = 0; i < remed; ++i) {
+        int idx = n - 2 - i;
+        pne* e = pneHTGet(c->db, setName, c->rargv[idx], 1);
+        e->current += 1;
+        if (e->current <= 0) {
             setTypeRemove(set, c->rargv[idx]->ptr);
         }
-        --remed;
-        if (remed > 0) {
-            jdx = idx - 1;
-            getLongLongFromObject(c->rargv[jdx], &tagNum);
-            idx = jdx - tagNum - 1;
-        }
-    } 
-    
+    }
 }
 
-void orsaddCommand(client *c) {
-    #ifdef RW_OVERHEAD
+void pnsaddCommand(client *c) {
+    #ifdef PN_OVERHEAD
         PRE_SET;
     #endif
         CRDT_BEGIN
@@ -165,12 +113,10 @@ void orsaddCommand(client *c) {
                 for (j = 2; j < c->argc; j++) {
                     if (set == NULL || !setTypeIsMember(set, c->argv[j]->ptr)) {
                         ++added;
-                        ore *e = oreHTGet(c->db, c->argv[1], c->argv[j], 1);
-                        lc *t = LC_NEW(e->current);
-                        ++e->current;
+                        pne *e = oreHTGet(c->db, c->argv[1], c->argv[j], 1);
                         RARGV_ADD_SDS(c->argv[j]->ptr);
-                        RARGV_ADD_SDS(lcToSds(t));
-                        zfree(t);
+                        int cnt = 1 - e->current;
+                        RARGV_ADD_SDS(sdsfromlonglong(cnt));
                     }
                 }
                 RARGV_ADD_SDS(sdsfromlonglong(added));
@@ -179,13 +125,13 @@ void orsaddCommand(client *c) {
     #ifdef COUNT_OPS
                 ocount++;
     #endif
-                orsaddGenericCommand(c, c->rargv[1]);
+                pnsaddGenericCommand(c, c->rargv[1]);
         CRDT_END
 
 }
 
-void orsremCommand(client *c) {
-    #ifdef RW_OVERHEAD
+void pnsremCommand(client *c) {
+    #ifdef PN_OVERHEAD
         PRE_SET;
     #endif
         CRDT_BEGIN
@@ -193,7 +139,6 @@ void orsremCommand(client *c) {
                 robj *set;
                 int j;
                 long long remed = 0;
-                int tagNum;
 
                 if ((set = lookupKeyWriteOrReply(c,c->argv[1],shared.czero))) {
                     return;
@@ -201,15 +146,7 @@ void orsremCommand(client *c) {
                 for (j = 2; j < c->argc; j++) {
                     if (setTypeIsMember(set, c->argv[j]->ptr)) {
                         ++remed;
-                        ore *e = oreHTGet(c->db, c->argv[1], c->argv[j], 1);
-                        tagNum = listLength(e->aset);
-                        listNode *ln;
-                        listIter li;
-                        listRewind(e->aset, &li);
-                        while ((ln = listNext(&li))) {
-                            RARGV_ADD_SDS(ln->value);
-                        }
-                        RARGV_ADD_SDS(sdsfromlonglong(tagNum));
+                        RARGV_ADD_SDS(c->argv[j]->ptr);
                     }
                 }
                 RARGV_ADD_SDS(sdsfromlonglong(remed));
@@ -218,13 +155,13 @@ void orsremCommand(client *c) {
     #ifdef COUNT_OPS
                 ocount++;
     #endif
-                orsremGenericCommand(c, c->rargv[1]);
+                pnsremGenericCommand(c, c->rargv[1]);
         CRDT_END
 
 }
 
-void orsunionstoreCommand(client *c) {
-    #ifdef RW_OVERHEAD
+void pnsunionstoreCommand(client *c) {
+    #ifdef PN_OVERHEAD
         PRE_SET;
     #endif
         CRDT_BEGIN
@@ -241,12 +178,10 @@ void orsunionstoreCommand(client *c) {
                     reh *e = rwseHTGet(c->db, c->argv[1], eleObj->ptr, 1);
                     if (set == NULL || !setTypeIsMember(set, ele)) {
                         ++added;
-                        ore *e = oreHTGet(c->db, c->argv[1], eleObj, 1);
-                        lc *t = LC_NEW(e->current);
-                        ++e->current;
+                        pne *e = pneHTGet(c->db, c->argv[1], eleObj, 1);
                         RARGV_ADD_SDS(sdsnew(ele));
-                        RARGV_ADD_SDS(lcToSds(t));
-                        zfree(t);
+                        int cnt = 1 - e->current;
+                        RARGV_ADD_SDS(sdsfromlonglong(cnt));
                     }
                     sdsfree(ele);
                     decrRefCount(eleObj);
@@ -259,13 +194,13 @@ void orsunionstoreCommand(client *c) {
     #ifdef COUNT_OPS
                 ocount++;
     #endif
-                orsaddGenericCommand(c, c->rargv[1]);
+                pnsaddGenericCommand(c, c->rargv[1]);
         CRDT_END
 
 }
 
-void orsdiffstoreCommand(client *c) {
-    #ifdef RW_OVERHEAD
+void pnsdiffstoreCommand(client *c) {
+    #ifdef PN_OVERHEAD
         PRE_SET;
     #endif
         CRDT_BEGIN
@@ -279,21 +214,11 @@ void orsdiffstoreCommand(client *c) {
                 int tagNum;
                 si = setTypeInitIterator(dstset);
                 while((ele = setTypeNextObject(si)) != NULL) {
-                    robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
                     if (setTypeIsMember(set, ele)) {
                          ++remed;
-                        ore *e = oreHTGet(c->db, c->argv[1], eleObj, 1);
-                        tagNum = listLength(e->aset);
-                        listNode *ln;
-                        listIter li;
-                        listRewind(e->aset, &li);
-                        while ((ln = listNext(&li))) {
-                            RARGV_ADD_SDS(ln->value);
-                        }
-                        RARGV_ADD_SDS(sdsfromlonglong(tagNum));
+                        RARGV_ADD_SDS(sdsnew(ele));
                     }
                     sdsfree(ele);
-                    decrRefCount(eleObj);
                 }
                 setTypeReleaseIterator(si);
                 decrRefCount(dstset);
@@ -303,12 +228,12 @@ void orsdiffstoreCommand(client *c) {
     #ifdef COUNT_OPS
                 ocount++;
     #endif
-                sremGenericCommand(c, c->rargv[1]);
+                pnsremGenericCommand(c, c->rargv[1]);
         CRDT_END
 
 }
 
-void orsinsterstoreCommand(client *c) {
+void pnsinsterstoreCommand(client *c) {
     #ifdef PN_OVERHEAD
         PRE_SET;
     #endif
@@ -320,25 +245,13 @@ void orsinsterstoreCommand(client *c) {
                 setTypeIterator *si;
                 sds ele;
                 int remed = 0;
-                int tagNum;
                 si = setTypeInitIterator(set);
                 while((ele = setTypeNextObject(si)) != NULL) {
-                    robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
                     if (!setTypeIsMember(dstset, ele)) {
                         ++remed;
-                        ore *e = oreHTGet(c->db, c->argv[1], eleObj, 1);
-                        tagNum = listLength(e->aset);
-                        listNode *ln;
-                        listIter li;
-                        listRewind(e->aset, &li);
-                        while ((ln = listNext(&li))) {
-                            RARGV_ADD_SDS(ln->value);
-                        }
-                        RARGV_ADD_SDS(sdsfromlonglong(tagNum));
-
+                        RARGV_ADD_SDS(sdsnew(ele));
                     }
                     sdsfree(ele);
-                    decrRefCount(eleObj);
                 }
                 setTypeReleaseIterator(si);
                 decrRefCount(dstset);
@@ -348,7 +261,7 @@ void orsinsterstoreCommand(client *c) {
     #ifdef COUNT_OPS
                 ocount++;
     #endif
-                orsremGenericCommand(c, c->rargv[1]);
+                pnsremGenericCommand(c, c->rargv[1]);
         CRDT_END
 
 }
