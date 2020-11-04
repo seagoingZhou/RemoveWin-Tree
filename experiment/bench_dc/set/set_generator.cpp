@@ -1,6 +1,6 @@
 #include "set_generator.h"
 
-void set_generator::gen_and_exec(redisContext *c)
+int set_generator::gen_and_exec(redisContext *c)
 {
     set_op_type t;
     string set0;
@@ -58,4 +58,5 @@ void set_generator::gen_and_exec(redisContext *c)
     
     
     set_cmd(t, set0, set1, key, ele).exec(c);
+    return 0;
 }

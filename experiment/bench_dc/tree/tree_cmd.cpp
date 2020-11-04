@@ -50,7 +50,7 @@ int tree_cmd::exec(redisContext *c)
         case treemembers:
         {
             ele.members(r);
-            printf("host %s:%d executing %s\n", c->tcp.host, c->tcp.port, tmp);
+            //printf("host %s:%d executing %s\n", c->tcp.host, c->tcp.port, tmp);
             break;
         }
     }

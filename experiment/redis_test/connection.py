@@ -253,8 +253,8 @@ def main(argv):
     if len(argv) == 1:
         n = int(argv[0])
     elif len(argv) == 4:
-        delay = "{}ms {}ms".format(float(argv[0])/2, float(argv[1])/2)
-        lo_delay = "{}ms {}ms".format(float(argv[2])/2, float(argv[3])/2)
+        delay = "{}ms {}ms".format(float(argv[0]), float(argv[1]))
+        lo_delay = "{}ms {}ms".format(float(argv[2]), float(argv[3]))
 
     print(n, delay, lo_delay)
 

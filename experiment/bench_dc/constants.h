@@ -36,6 +36,6 @@ extern int TOTAL_OPS;
 #define TIME_OVERHEAD 1
 #define TIME_MAX 1
 
-#define MIN_TREE_SIZE 300
+#define MIN_TREE_SIZE 100
 
 #endif //BENCH_CONSTANTS_H

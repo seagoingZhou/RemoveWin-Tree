@@ -50,11 +50,11 @@ inline void set_delay(int hd, int ld)
     set_default();
     DELAY = hd;
     DELAY_LOW = ld;
-    TOTAL_OPS = 10000000;
+    TOTAL_OPS = 1000000;
 }
 
 
-void tree_test_dis(const char *dir){
+int tree_test_dis(const char *dir){
     tree_log tlog("rw",dir);
     tree_generator gen(tlog);
     tree_cmd read_members(treemembers,"","","",tlog);
@@ -62,7 +62,7 @@ void tree_test_dis(const char *dir){
 
     exp_runner<string> runner(tlog,gen);
     runner.set_cmd_read(read_members);
-    runner.run();
+    return runner.run();
 }
 
 void tree_init(){
@@ -72,6 +72,43 @@ void tree_init(){
     freeReplyObject(reply);
     redisFree(c);
     std::this_thread::sleep_for(std::chrono::seconds(2));
+}
+
+int test_delay(double hd, double ld) {
+
+    int ret = 0;
+    double hd_r = hd * 0.05;
+    double ld_r = ld * 0.05;
+    timeval t1{}, t2{};
+    gettimeofday(&t1, nullptr);
+
+    set_delay(hd, ld);
+    char pycmd[256];
+    sprintf(pycmd, "python3.6 ../redis_test/connection.py %f %f %f %f", hd, hd_r, ld, ld_r);
+    system(pycmd);
+    tree_init();
+    
+    ret = tree_test_dis("../result/RawData");
+    if (ret == -1) {
+        return -1;
+    }
+    gettimeofday(&t2, nullptr);
+    double time_diff_sec = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
+    printf("total time: %f\n", time_diff_sec);
+    return ret;
+}
+
+void delayTest() {
+    int hd = 50;
+    double ld;
+    int ret;
+    while (hd <= 300) {
+        ld = hd * 0.2;
+        ret = test_delay((double)hd, ld);
+        if (ret == 0) {
+            hd += 50;
+        }
+    }
 }
 
 void tree_experiment()
@@ -101,7 +138,8 @@ int main(int argc, char *argv[])
 {
     //time_max();
     //test_count_dis_one(ips[0],6379);
-    tree_experiment();
+    //tree_experiment();
+    delayTest();
 
     return 0;
 }

@@ -2,7 +2,7 @@
 #include <string.h>
 
 
-void set_cmd::exec(redisContext *c)
+int set_cmd::exec(redisContext *c)
 {
     //char name[128];
     //sprintf(name, "%ss%d", rpq_cmd_prefix[zt], OP_PER_SEC);
@@ -73,4 +73,5 @@ void set_cmd::exec(redisContext *c)
         }
     }
     freeReplyObject(r);
+    return 0;
 }

@@ -40,7 +40,7 @@ public:
         start_maintaining_records();
     }
 
-    void gen_and_exec(redisContext *c) override;
+    int gen_and_exec(redisContext *c) override;
 
 };
 

@@ -8,27 +8,21 @@ int tree_generator::gen_and_exec(redisContext *c)
     string value;
     
     double rand = decide();
-    if (ele.tSize()<MIN_TREE_SIZE||rand <= PA)
-    {
+    if (ele.tSize()<MIN_TREE_SIZE||rand <= PA) {
         t = insert;
         //d = gen_initial();
         value = gen_value();
         uid = gen_uid();
         double conf = decide();
         
-        if (conf < PAR)
-        {
+        if (conf < PAR) {
             pid = rem.get("0,0");
             add.add(uid);
-        }
-        else
-        {
+        } else {
             pid = ele.random_insert_get();
             add.add(uid);
         }
-    }
-    else if (rand <= PC)
-    {
+    } else if (rand <= PC) {
         t = changevalue;
         value = gen_value();
         double conf = decide();
@@ -36,61 +30,51 @@ int tree_generator::gen_and_exec(redisContext *c)
         if (conf < PCC){
             pid = change.get("0,0");
             change.add(pid);
-        } 
-        else 
-        {
+        } else {
             pid = ele.random_get();
             change.add(pid);
         }
-    }
-    else
-    {
+    } else {
         //tree的规模过小则不能执行删除操作
         if (ele.tSize()<MIN_TREE_SIZE){
-            return;
+            return 0;
         }
         t = del;
         double conf = decide();
-        if (conf < PRA)
-        {
+        if (conf < PRA) {
             pid = add.get("0,0");
-            if (pid == "0,0")
-            {
+            if (pid == "0,0") {
                 pid = ele.random_get();
-                if (pid == "0,0")return;
+                if (pid == "0,0") {
+                    return 0;
+                }
             }
             
-            rem.add(pid);
-            
-            
-        }
-        else if (conf < PRR)
-        {
+            rem.add(pid); 
+        } else if (conf < PRR) {
             pid = rem.get("0,0");
-            if (pid == "0,0")
-            {
+            if (pid == "0,0") {
                 pid = ele.random_get();
-                if (pid == "0,0")return;
-                
-                rem.add(pid);
-                
+                if (pid == "0,0") {
+                    return 0;
+                } 
+                rem.add(pid);  
             }
-        }
-        else if (conf < PRC)
-        {
+        } else if (conf < PRC) {
             pid = change.get("0,0");
-            if (pid == "0,0")
-            {
+            if (pid == "0,0") {
                 pid = ele.random_get();
-                if (pid == "0,0")return;
+                if (pid == "0,0") {
+                    return 0;
+                }
             }
             rem.add(pid);
             
-        }
-        else
-        {
+        } else {
             pid = ele.random_get();
-            if (pid == "0,0")return;
+            if (pid == "0,0") {
+                    return 0;
+                }
             rem.add(pid);
             
         }

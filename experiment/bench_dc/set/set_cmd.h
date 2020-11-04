@@ -20,7 +20,7 @@ public:
 
     set_cmd(const set_cmd &c) = default;
 
-    void exec(redisContext *c) override;
+    int exec(redisContext *c) override;
 };
 
 

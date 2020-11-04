@@ -38,7 +38,7 @@ private:
     vector<task_queue *> tasks;
 
     int conn_one_server_timed(const char *ip, int port) {
-        int ret = 0;
+        volatile int ret = 0;
         for (int i = 0; i < THREAD_PER_SERVER; ++i) {
             auto task = new task_queue();
             auto t = new thread([this, ip, port, task, &ret] {
@@ -88,14 +88,14 @@ public:
     }
 
     int run() {
-        int ret = 0;
+        volatile int ret = 0;
         timeval t1{}, t2{};
         gettimeofday(&t1, nullptr);
 
         for (auto ip:ips) {
             for (int i = 0; i < (TOTAL_SERVERS / 3); ++i) {
                 ret = conn_one_server_timed(ip, 6379 + i);
-                if (ret = -1) {
+                if (ret == -1) {
                     return ret;
                 }
             }
@@ -204,8 +204,9 @@ public:
             delete ovhd_thread;
         }
         gen.stop_and_join();
-
-        log.write_file();
+        if (ret == 0) {
+            log.write_file();
+        }
 
         for (auto t :thds)
             delete t;
