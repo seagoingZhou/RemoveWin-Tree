@@ -208,7 +208,7 @@ string tree_log::random_insert_get(){
 
 void tree_log::write_file(){
     char n[64], f[64];
-    sprintf(n, "%s/%s:%d,%d,(%d,%d)", dir, type, TOTAL_SERVERS, OP_PER_SEC, DELAY, DELAY_LOW);
+    sprintf(n, "%s/%s-%d-%d-%d-%d", dir, type, TOTAL_SERVERS, OP_PER_SEC, DELAY, DELAY_LOW);
     bench_mkdir(n);
 
     sprintf(f, "%s/s.tree", n);

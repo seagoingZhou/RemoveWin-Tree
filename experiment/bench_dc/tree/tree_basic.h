@@ -5,6 +5,8 @@
 #define MAX_INIT 100
 #define MAX_INCR 50
 
+// add-rem domanient 0.6-0.1-0.3
+// chg domanient 0.2-0.7-0.1
 #define PR_ADD 0.6
 #define PR_CHV 0.1
 #define PR_REM 0.3

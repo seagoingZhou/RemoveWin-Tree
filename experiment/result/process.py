@@ -7,16 +7,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Polygon
 import pandas as pd
+import seaborn as sns
 
 MODEL = 0;
 DELAY = 3
-SPEED = 1
-directory = "./ProcessedData/delay"
+SPEED = 2
+directory = "./ProcessedData/speed"
 
-MODEL = DELAY
+MODEL = SPEED
 def cmp(a1,a2):
-    key1 = float(re.split('[,\(]',a1)[MODEL])
-    key2 = float(re.split('[,\(]',a2)[MODEL])
+    key1 = float(re.split('-',a1)[MODEL])
+    key2 = float(re.split('-',a2)[MODEL])
     return key1-key2
 
 
@@ -29,7 +30,7 @@ def TreeSimilarity(directory):
     maxlen = 0
     
     for file in filenames:
-        col=re.split('[,\(]',file)[MODEL]
+        col=re.split('-',file)[MODEL]
         sgldata = []
         #print(file)
         with open(directory+"/"+file) as fin:
@@ -37,20 +38,35 @@ def TreeSimilarity(directory):
             sglraw = [row for row in cin]
             #print(sglraw[0])
         for point in sglraw:
-            sgldata.append(1 - float(point[0])/max(float(point[1]),float(point[2])))
+            cnt_grd = point[0].split('#')
+            sgldata.append(float(cnt_grd[1])/(3 * (float(point[1]) + float(point[2]) - float(cnt_grd[0]))))
+            #sgldata.append(float(point[0]))
+            #sgldata.append(float(point[0])/((float(point[1]) + float(point[2]))))
         datas[col]=sgldata 
-        maxlen = max(maxlen,len(sgldata))
     
-    for file in filenames:
-        col=re.split('[,\(]',file)[MODEL]
-        diff = maxlen-len(datas[col])
-        datas[col].extend([None]*diff)
     return datas
 
+def merge_data(raw_data, merged_data, model):
+    for key in raw_data:
+    	for val in raw_data[key]:
+            merged_data["speed"].append(float(key))
+            merged_data["similarity"].append(float(val))
+            merged_data["model"].append(model)
+    #return merge_data
 
-data = TreeSimilarity(directory)
-df = pd.DataFrame.from_dict(data)
-df.plot.box()
+merged_data = {}
+merged_data["speed"] = []
+merged_data["similarity"] = []
+merged_data["model"] = []
+data1 = TreeSimilarity("./ProcessedData/speed/ins-del")
+data2 = TreeSimilarity("./ProcessedData/speed/chg")
+print(pd.DataFrame.from_dict(data2).head())
+
+merge_data(data1, merged_data, "ins-del")
+merge_data(data2, merged_data, "chg")
+df = pd.DataFrame.from_dict(merged_data)
+print(df.head())
+sns.boxplot(x="speed", y = "similarity", hue = "model", data = df)
 plt.show()
 
 

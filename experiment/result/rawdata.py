@@ -2,6 +2,7 @@ import os
 import csv
 import sys
 from zss import simple_distance, Node
+import networkx as nx
 
 
 class TreeNode(object):
@@ -10,9 +11,9 @@ class TreeNode(object):
         self.id = id
         self.value = value
 
-def tedTreeGen(raw):
+def tree_gen(raw):
     raw_map = {}
-    raw_map[0,0] = []
+    raw_map['0,0'] = TreeNode('0,0','root')
     for data in raw:
         raw_map[data[0]] = TreeNode(data[0],data[1])
     tree_map = {}
@@ -23,20 +24,70 @@ def tedTreeGen(raw):
     for data in raw:
         tree_map[data[2]].append(raw_map[data[0]])
     for data in raw:
-        tree_map[data[0]] = sorted(tree_map[data[0]],key = lambda x:x.value)
-    tedTree = {}
-    tedTree['0,0'] = Node('root',[])
+        tree_map[data[0]] = sorted(tree_map[data[0]],key = lambda x:x.id)
+    ted_tree = {}
+    ted_tree['0,0'] = Node('root',[])
     for data in raw:
-        tedTree[data[0]] = Node(data[1],[])
+        ted_tree[data[0]] = Node(data[1],[])
     for child in tree_map['0,0']:
-        tedTree['0,0'].addkid(tedTree[child.id])
+        ted_tree['0,0'].addkid(ted_tree[child.id])
     for data in raw:
         for child in tree_map[data[0]]:
-            tedTree[data[0]].addkid(tedTree[child.id])
+            ted_tree[data[0]].addkid(ted_tree[child.id])
 
-    return tedTree['0,0']
+    return ted_tree['0,0']
 
-def read(directory="."):
+def n_match(node1, node2):
+    key1 = node1['name']
+    key2 = node2['name']
+    return key1 == key2
+
+def graph_gen(raw):
+    raw_map = {}
+    raw_map["0,0"] = "root"
+    for data in raw:
+        raw_map[data[0]] = data[1]
+    tree_map = {}
+    tree_map["0,0"] = []
+    for data in raw:
+        tree_map[data[0]] = []
+        tree_map[data[2]] = []
+    for data in raw:
+        tree_map[data[2]].append(data[0])
+    G = nx.DiGraph()
+    list = ["0,0"]
+    G.add_node("0,0", name = "root")
+    while list:
+        cur = list.pop(0)
+        for child in tree_map[cur]:
+            c_name = raw_map[child]
+            G.add_node(child, name = c_name)
+            G.add_edge(cur, child)
+            list.append(child)
+    print("graph gen done\n")
+    return G
+
+def jac_gen(raw):
+    ret = {}
+    ret['0,0'] = ['root', 'null']
+    for data in raw:
+        if len(data) == 3:
+            ret[data[0]] = [data[1], data[2]]
+        else:
+            print("invalid data")
+            print(data)
+    return ret
+
+def jaccord(d0, d1):
+    cnt = 0
+    grd = 0
+    for key in d0:
+        if key in d1:
+            cnt += 1
+            grd += 1 + int(d0[key][0]==d1[key][0]) + int(d0[key][1]==d1[key][1])
+    return str(cnt) + '#' + str(grd)
+
+def ted_read(directory="."):
     tmp1 = []
     tmp2 = []
     flag = 0;
@@ -50,8 +101,8 @@ def read(directory="."):
             tmp2 = []
             flag = 2
         elif ss =='**':
-            t1 = tedTreeGen(tmp1)
-            t2 = tedTreeGen(tmp2)
+            t1 = tree_gen(tmp1)
+            t2 = tree_gen(tmp2)
             ted = simple_distance(t1, t2)
             len1 = len(tmp1)
             len2 = len(tmp2)
@@ -64,8 +115,64 @@ def read(directory="."):
                 tmp2.append(line.split())
     return data
 
+def ged_read(directory="."):
+    tmp1 = []
+    tmp2 = []
+    flag = 0;
+    data = []
+    for line in open(directory + "/s.tree"):
+        ss=line.strip()
+        if ss == '*':
+            tmp1 = []
+            flag = 1
+        elif ss == '--':
+            tmp2 = []
+            flag = 2
+        elif ss =='**':
+            g1 = graph_gen(tmp1)
+            g2 = graph_gen(tmp2)
+            ged = nx.graph_edit_distance(g1, g2, node_match = n_match)
+            len1 = len(tmp1)
+            len2 = len(tmp2)
+            print([ged,len1,len2])
+            data.append([ged,len1,len2])
+        else:
+            if flag==1:
+                tmp1.append(line.split())
+            elif flag==2:
+                tmp2.append(line.split())
+    return data
 
-def tedSave(foldname):
+def read(directory=".", gen_fun = jac_gen, cmp_fun = jaccord):
+    tmp1 = []
+    tmp2 = []
+    flag = 0;
+    data = []
+    for line in open(directory + "/s.tree"):
+        ss=line.strip()
+        if ss == '*':
+            tmp1 = []
+            flag = 1
+        elif ss == '--':
+            tmp2 = []
+            flag = 2
+        elif ss =='**':
+            t1 = gen_fun(tmp1)
+            t2 = gen_fun(tmp2)
+            ted = cmp_fun(t1, t2)
+            len1 = len(tmp1)
+            len2 = len(tmp2)
+            print([ted,len1,len2])
+            data.append([ted,len1,len2])
+        else:
+            if flag==1:
+                tmp1.append(line.split())
+            elif flag==2:
+                tmp2.append(line.split())
+    return data
+
+
+def save(foldname, data):
     filename = "{name}.csv".format(name = foldname)
     with open(filename, 'w') as f:
         csvwriter = csv.writer(f)
@@ -76,8 +183,8 @@ foldlist = os.listdir("./RawData")
 for fold in foldlist:
     d = "{dir}/{foldname}".format(dir='./RawData',foldname=fold)
     print(d);
-    data = read(d)
-    tedSave(fold)
+    data = read(d, gen_fun = jac_gen, cmp_fun = jaccord)
+    save(fold, data)
 
 
 

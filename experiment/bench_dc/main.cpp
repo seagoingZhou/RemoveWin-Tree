@@ -23,11 +23,11 @@ int ROUND = 0;
 
 inline void set_default()
 {
-    DELAY = 50;
-    DELAY_LOW = 10;
+    DELAY = 300;
+    DELAY_LOW = 60;
     TOTAL_SERVERS = 9;
-    TOTAL_OPS = 100000000;
-    OP_PER_SEC = 10000;
+    TOTAL_OPS = 500000;
+    OP_PER_SEC = 5000;
     ROUND = 0;
 }
 
@@ -35,7 +35,7 @@ inline void set_speed(int speed)
 {
     set_default();
     OP_PER_SEC = speed;
-    TOTAL_OPS = 200000;
+    TOTAL_OPS = 100 * speed;
 }
 
 inline void set_replica(int replica)
@@ -50,7 +50,7 @@ inline void set_delay(int hd, int ld)
     set_default();
     DELAY = hd;
     DELAY_LOW = ld;
-    TOTAL_OPS = 1000000;
+    //TOTAL_OPS = 1000000;
 }
 
 
@@ -98,15 +98,50 @@ int test_delay(double hd, double ld) {
     return ret;
 }
 
+int test_speed(int speed) {
+    int ret = 0;
+    set_speed(speed);
+    double hd = DELAY;
+    double ld = DELAY_LOW;
+    double hd_r = DELAY * 0.05;
+    double ld_r = DELAY_LOW * 0.05;
+    timeval t1{}, t2{};
+    gettimeofday(&t1, nullptr);
+    char pycmd[256];
+    sprintf(pycmd, "python3.6 ../redis_test/connection.py %f %f %f %f", hd, hd_r, ld, ld_r);
+    system(pycmd);
+    tree_init();
+    
+    ret = tree_test_dis("../result/RawData");
+    if (ret == -1) {
+        return -1;
+    }
+    gettimeofday(&t2, nullptr);
+    double time_diff_sec = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
+    printf("total time: %f\n", time_diff_sec);
+    return ret;
+}
+
 void delayTest() {
     int hd = 50;
     double ld;
     int ret;
-    while (hd <= 300) {
+    while (hd <= 500) {
         ld = hd * 0.2;
         ret = test_delay((double)hd, ld);
         if (ret == 0) {
             hd += 50;
+        }
+    }
+}
+
+void speedTest() {
+    int speed = 500;
+    int ret;
+    while (speed <= 6000) {
+        ret = test_speed(speed);
+        if (ret == 0) {
+            speed += 500;
         }
     }
 }
@@ -140,6 +175,7 @@ int main(int argc, char *argv[])
     //test_count_dis_one(ips[0],6379);
     //tree_experiment();
     delayTest();
+    //speedTest();
 
     return 0;
 }
