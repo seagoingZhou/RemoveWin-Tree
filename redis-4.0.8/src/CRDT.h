@@ -38,7 +38,13 @@ do{\
     if(__rvct__.size == __rvct__.capacity)\
     {\
         __rvct__.capacity *= 2;\
-        __rvct__.vector = zrealloc(__rvct__.vector, __rvct__.capacity);\
+        void** _tmp = zmalloc(__rvct__.capacity * sizeof(robj*));\
+        for (int _i = 0; _i < __rvct__.size; ++_i) {\
+            _tmp[_i] = __rvct__.vector[_i];\
+        }\
+        zfree(__rvct__.vector);\
+        __rvct__.vector = NULL;\
+        __rvct__.vector = _tmp;\
     }\
     __rvct__.vector[__rvct__.size] = obj;\
     __rvct__.size++;\
@@ -95,5 +101,25 @@ do{\
 #define CRDT_PREPARE if(!(c->flags & CLIENT_REPLICA)){rvector __rvct__;RVCT_PREPARE;
 #define CRDT_EFFECT addReply(c, shared.ok);RVCT_BROADCAST;}{
 #define CRDT_END }if(c->flags & CLIENT_REPLICA_MESSAGE){addReply(c, shared.ok);}return;}
+
+/*
+ *  if(REPLICATION_MODE){                           #BEGIN
+        if(!(c->flags & CLIENT_REPLICA)) {
+            rvector __rvct__;
+            RVCT_PREPARE;                           #CRDT_PREPARE
+
+
+            addReply(c, shared.ok);
+            RVCT_BROADCAST;
+        }                                           #CRDT_EFFECT
+        {
+
+            
+        }
+        if(c->flags & CLIENT_REPLICA_MESSAGE) {
+            addReply(c, shared.ok);
+        }
+    return;}                                        #CRDT_END
+*/
 
 #endif //REDIS_4_0_8_CRDT_H

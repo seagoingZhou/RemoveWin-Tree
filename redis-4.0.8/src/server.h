@@ -2081,6 +2081,12 @@ void DeleteCommand(client *c);
 void ChangeValueCommand(client *c);
 void MoveCommand(client *c);
 
+void rwsaddCommand(client *c);
+void rwsremCommand(client *c);
+void rwsinterstoreCommand(client *c);
+void rwsunionstoreCommand(client *c);
+void rwsdiffstoreCommand(client *c);
+
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));
 void free(void *ptr) __attribute__ ((deprecated));

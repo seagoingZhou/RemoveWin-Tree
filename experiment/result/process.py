@@ -14,7 +14,9 @@ DELAY = 3
 SPEED = 2
 directory = "./ProcessedData/speed"
 
-MODEL = SPEED
+MODEL_MAP = {2:"operation speed(op/s)", 3:"network delay(ms)"}
+
+MODEL = DELAY
 def cmp(a1,a2):
     key1 = float(re.split('-',a1)[MODEL])
     key2 = float(re.split('-',a2)[MODEL])
@@ -49,24 +51,24 @@ def TreeSimilarity(directory):
 def merge_data(raw_data, merged_data, model):
     for key in raw_data:
     	for val in raw_data[key]:
-            merged_data["speed"].append(float(key))
+            merged_data[MODEL_MAP[MODEL]].append(float(key))
             merged_data["similarity"].append(float(val))
             merged_data["model"].append(model)
     #return merge_data
 
 merged_data = {}
-merged_data["speed"] = []
+merged_data[MODEL_MAP[MODEL]] = []
 merged_data["similarity"] = []
 merged_data["model"] = []
-data1 = TreeSimilarity("./ProcessedData/speed/ins-del")
-data2 = TreeSimilarity("./ProcessedData/speed/chg")
-print(pd.DataFrame.from_dict(data2).head())
+data1 = TreeSimilarity("./ProcessedData/delay/ins-del")
+data2 = TreeSimilarity("./ProcessedData/delay/chg")
 
 merge_data(data1, merged_data, "ins-del")
 merge_data(data2, merged_data, "chg")
 df = pd.DataFrame.from_dict(merged_data)
 print(df.head())
-sns.boxplot(x="speed", y = "similarity", hue = "model", data = df)
+sns.boxplot(x=MODEL_MAP[MODEL], y = "similarity", hue = "model", data = df)
+sns.set(font_scale = 2)
 plt.show()
 
 

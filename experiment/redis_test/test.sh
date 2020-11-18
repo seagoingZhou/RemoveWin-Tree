@@ -4,7 +4,7 @@ if [ $# == 0 ]
 then
     ./server.sh
     ./construct_replication.sh
-    ./client.sh 6379
+    sh ./client.sh 6379
 elif [ $1 == "end" ]
 then
     ./shutdown.sh
@@ -15,7 +15,7 @@ then
     ./clean.sh
     ./server.sh
     ./construct_replication.sh
-    ./client.sh 6379
+    sh ./client.sh 6379
 elif [ $1 == "single" ]
 then
     ./server.sh 6379

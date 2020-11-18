@@ -9,6 +9,6 @@ fi
 
 for port in ${ports[*]}
 do
-    /Redis/RWTree/redis-4.0.8/src/redis-server ${port}.conf
+    /Redis/RWTree/redis-4.0.8/src/redis-server ./${port}.conf
     echo "server ${port} started."
 done

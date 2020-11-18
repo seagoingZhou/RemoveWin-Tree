@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "string": "cpp",
-        "thread": "cpp"
+        "thread": "cpp",
+        "vector": "cpp"
     }
 }

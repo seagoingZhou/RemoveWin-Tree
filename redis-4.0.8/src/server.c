@@ -336,6 +336,14 @@ struct redisCommand redisCommandTable[] = {
     {"treemove",MoveCommand,-4,"wmF",0,NULL,1,1,1,0,0},
     {"treemembers",treeMembersCommand,2,"rF",0,NULL,1,1,1,0,0},
     //{"subtree",subtreeCommand,3,"rF",0,NULL,1,1,1,0,0}
+    {"rwsadd",rwsaddCommand,-3,"wmF",0,NULL,1,1,1,0,0},
+    {"rwsrem",rwsremCommand,-3,"wF",0,NULL,1,1,1,0,0},
+    {"rwsinter",sinterCommand,-2,"rS",0,NULL,1,-1,1,0,0},
+    {"rwsinterstore",rwsinterstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
+    {"rwsunion",sunionCommand,-2,"rS",0,NULL,1,-1,1,0,0},
+    {"rwsunionstore",rwsunionstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
+    {"rwsdiff",sdiffCommand,-2,"rS",0,NULL,1,-1,1,0,0},
+    {"rwsdiffstore",rwsdiffstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
 };
 
 /*============================ Utility functions ============================ */
