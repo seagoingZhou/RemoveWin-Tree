@@ -6,25 +6,27 @@ int set_cmd::exec(redisContext *c)
 {
     //char name[128];
     //sprintf(name, "%ss%d", rpq_cmd_prefix[zt], OP_PER_SEC);
+    
     char tmp[256];
     switch (t)
     {
         case ADD:
-            sprintf(tmp, "sadd %s %s", set0.c_str(), key.c_str());
+            sprintf(tmp, "%ssadd %s %s",set_type.c_str(), set0.c_str(), key.c_str());
             break;
         case REM:
-            sprintf(tmp, "srem %s %s", set0.c_str(), key.c_str());
+            sprintf(tmp, "%ssrem %s %s", set_type.c_str(), set0.c_str(), key.c_str());
             break;
         case DIFF:
-            sprintf(tmp, "sdiffstore %s %s", set0.c_str(), set1.c_str());
+            sprintf(tmp, "%ssdiffstore %s %s %s", set_type.c_str(), set0.c_str(), set0.c_str(), set1.c_str());
             break;
         case INTER:
-            sprintf(tmp, "sinterstore %s %s", set0.c_str(), set1.c_str());
+            sprintf(tmp, "%ssinterstore %s %s %s", set_type.c_str(), set0.c_str(), set0.c_str(), set1.c_str());
             break;
         case UNION:
-            sprintf(tmp, "sunionstore %s %s", set0.c_str(), set1.c_str());
+            sprintf(tmp, "%ssunionstore %s %s %s", set_type.c_str(), set0.c_str(), set0.c_str(), set1.c_str());
             break;
         default:
+            set0 = ele.randomSetGet();
             sprintf(tmp, "smembers %s",  set0.c_str());
         
     }
@@ -35,7 +37,6 @@ int set_cmd::exec(redisContext *c)
         printf("host %s:%d terminated.\nexecuting %s\n", c->tcp.host, c->tcp.port, tmp);
         exit(-1);
     }
-
     
     switch (t)
     {

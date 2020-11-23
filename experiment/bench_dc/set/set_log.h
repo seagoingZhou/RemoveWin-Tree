@@ -12,6 +12,7 @@
 #include <mutex>
 #include "set_basic.h"
 #include "../util.h"
+#include "key.h"
 
 using namespace std;
 
@@ -21,23 +22,26 @@ private:
     vector<string> setNames;
     unordered_map<string,unordered_set<string>> setMap;
     int setSize;
-    int maxKeySize;
+    Key *keyGen;
+    int initKeySize;
     mutex mtx,m_mtx;
     vector<vector<int>> s_log;
 
 public:
-    set_log(const char *type, const char *dir, int size) : rdt_log(type, dir), setSize(size), setNames(size) {
-        for (int i = 0; i < size; ++i) {
+    set_log(const char *type, const char *dir, int ssize, int ksize) : 
+        rdt_log(type, dir), setSize(ssize), setNames(ssize), initKeySize(ksize) {
+        
+        keyGen = new Key(1000);
+        for (int i = 0; i < setSize; ++i) {
             string setName = "set" + to_string(i);
             setNames[i] = setName;
             unordered_set<string> tmp;
             setMap[setName] = tmp;
-            maxKeySize = MAX_KEY_SIZE;
         }
     }
 
     ~set_log(){
-        
+        delete keyGen;
     }
 
     void sadd(string setName, string key);
@@ -46,12 +50,17 @@ public:
     void sinter(string setDst, string setSrc);
     void sdiff(string setDst, string setSrc);
     void smembers(string setName, redisReply *reply);
-    void writeFile();
+    void initSet();
+    void write_file();
 
     string randomSetGet();
     vector<string> randomSetGet2();
     string randomKeyGet(string set);
-    string randomKeyGenerator(string set);
+    string nextKeyGenerator();
+
+    string getSetType() {
+        return type;
+    }
 };
 
 

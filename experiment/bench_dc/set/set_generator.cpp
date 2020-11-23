@@ -11,7 +11,7 @@ int set_generator::gen_and_exec(redisContext *c)
     if (rand <= PADD) {
         t = ADD;
         set0 = ele.randomSetGet();
-        key = ele.randomKeyGenerator(set0);
+        key = ele.nextKeyGenerator();
     } else if (rand <= PREM) {
         t = REM;
         set0 = ele.randomSetGet();
@@ -57,6 +57,6 @@ int set_generator::gen_and_exec(redisContext *c)
         
     
     
-    set_cmd(t, set0, set1, key, ele).exec(c);
+    set_cmd(ele.getSetType(), t, set0, set1, key, ele).exec(c);
     return 0;
 }

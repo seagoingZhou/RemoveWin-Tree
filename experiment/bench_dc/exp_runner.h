@@ -100,7 +100,6 @@ public:
                 }
             }
         }
-                
 
         thread timer([this] {
             timeval td{}, tn{};
