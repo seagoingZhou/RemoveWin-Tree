@@ -68,7 +68,7 @@ void saddGenericCommand(client* c, robj* setName) {
     if (added == 0) {
         return;
     }
-    robj* set = getSetOrCreate(c->db, setName, c->rargv[n - 3]);
+    robj* set = getSetOrCreate(c->db, setName, c->rargv[n - 3]->ptr);
 
     for (i = 0; i < (int)added; ++i) {
         int idx = n - 3 - 2 * i;
@@ -92,7 +92,7 @@ void sremGenericCommand(client* c, robj* setName) {
     if (remed == 0) {
         return;
     }
-    robj* set = getSetOrCreate(c->db, setName, c->rargv[n - 3]);
+    robj* set = getSetOrCreate(c->db, setName, c->rargv[n - 3]->ptr);
     for (i = 0; i < remed; ++i) {
         int idx = n - 3 - 2 * i;
         vc *t = CR_GET(idx + 1);

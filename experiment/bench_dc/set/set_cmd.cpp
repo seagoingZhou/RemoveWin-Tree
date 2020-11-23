@@ -69,7 +69,7 @@ int set_cmd::exec(redisContext *c)
             break;
         case MEMBERS:
         {
-            ele.smembers(set0,r);
+            ele.smembers(set0, r);
             break;
         }
     }
