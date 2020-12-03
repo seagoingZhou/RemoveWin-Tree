@@ -128,22 +128,29 @@ public:
                 for (auto ip:ips) {
                     vector<redisContext *> ports;
                     string keyIp = string(ip);
-                    clientPool[keyIp] = ports;
+                    clientPool.insert({keyIp, ports});
                     for (int i = 0; i < (TOTAL_SERVERS / 3); ++i) {
                         redisContext *c = redisConnect(ip, 6379 + i);
-                        clientPool[keyIp].push_back(c);
+                        if (c == nullptr || c->err) {
+                            if (c) {
+                                printf("Error: %s, ip:%s, port:%d\n", c->errstr, ip, 6379 + i);
+                            } else {
+                                printf("Can't allocate redis context\n");
+                            }
+                            exit(-1);
+                        }
+                        clientPool.at(keyIp).push_back(c);
                     }
                 }
                 while (rb) {
-                    
                     for (auto ip:ips) {
                         if (!rb || ret == -1) {
                             break;
                         }
                         string keyIp = string(ip);
                         for (int i = 0; i < (TOTAL_SERVERS / 3) && rb; ++i) {
-                            redisContext *c1 = clientPool[keyIp][i];
-                            this_thread::sleep_for(chrono::seconds(TIME_MAX));
+                            redisContext *c1 = clientPool.at(keyIp).at(i);
+                            this_thread::sleep_for(chrono::milliseconds(TIME_MAX));
                             ret = read_cmd->exec(c1);
                             if (ret == -1) {
                                 break;
@@ -152,11 +159,9 @@ public:
                     } 
                 }
                 for (auto ip:ips) {
-                    vector<redisContext *> ports;
                     string keyIp = string(ip);
-                    clientPool[keyIp] = ports;
                     for (int i = 0; i < (TOTAL_SERVERS / 3); ++i) {
-                        redisContext *c1 = clientPool[keyIp][i];
+                        redisContext *c1 = clientPool.at(keyIp).at(i);
                         redisFree(c1);
                     }
                 }

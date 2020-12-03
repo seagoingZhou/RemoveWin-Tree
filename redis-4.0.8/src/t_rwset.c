@@ -42,6 +42,20 @@ inline rwse *rwseHTGet(redisDb *db, robj *tname, robj *key, int create) {
     );
 }
 
+setTypeIterator *setTypeInitSafeIterator(robj *subject) {
+    setTypeIterator *si = zmalloc(sizeof(setTypeIterator));
+    si->subject = subject;
+    si->encoding = subject->encoding;
+    if (si->encoding == OBJ_ENCODING_HT) {
+        si->di = dictGetSafeIterator(subject->ptr);
+    } else if (si->encoding == OBJ_ENCODING_INTSET) {
+        si->ii = 0;
+    } else {
+        serverPanic("Unknown set encoding");
+    }
+    return si;
+}
+
 void setRemoveFunc(client *c, rwse *e, vc *t, robj *setName, robj *eleName) {
     if (removeCheck((reh *) e, t)) {
         REH_RMV_FUNC(e,t);
@@ -194,10 +208,10 @@ void sunionResult(client *c, robj **setkeys, int setnum, robj *dstset) {
     }
 }
 
-void sdiffResult(client *c, robj **setkeys, int setnum, robj *dstset) {
+void sdiffResult(client *c, int idx, int setnum, robj *dstset) {
     setTypeIterator *si;
     sds ele;
-    robj *set = lookupKeyRead(c->db, setkeys[0]);
+    robj *set = lookupKeyRead(c->db, c->argv[idx]);
     if (set == NULL) {
         return;
     }
@@ -214,62 +228,92 @@ void sdiffResult(client *c, robj **setkeys, int setnum, robj *dstset) {
     decrRefCount(unionSet);
 }
 
-int qsortCompareRwfSetsByCardinality(const void *s1, const void *s2) {
-    if (setTypeSize(*(robj**)s1) > setTypeSize(*(robj**)s2)) return 1;
-    if (setTypeSize(*(robj**)s1) < setTypeSize(*(robj**)s2)) return -1;
-    return 0;
+unsigned long dictSize0(const dict* d) {
+    return d->ht[0].used+d->ht[1].used;
 }
 
-void sinterResult(client *c, robj **setkeys, int setnum, robj *dstset) {
-    robj **sets = zmalloc(sizeof(robj*)*setnum);
+unsigned long setTypeSize0(const robj *subject) {
+    if (subject->encoding == OBJ_ENCODING_HT) {
+        return dictSize0((const dict*)subject->ptr);
+    } else if (subject->encoding == OBJ_ENCODING_INTSET) {
+        return intsetLen((const intset*)subject->ptr);
+    } else {
+        serverPanic("Unknown set encoding");
+    }
+}
+
+void sinterResult(client *c, int idx, int setnum, robj *dstset) {
     setTypeIterator *si;
     sds elesds;
     int64_t intobj;
     int j;
     int encoding;
+    /*
+    robj *setobj = lookupKeyRead(c->db, c->argv[idx]);
+    if (setobj == NULL) {
+        return;
+    }
+    if (checkType(c, setobj, OBJ_SET)) {
+        return;
+    }
+    int minIdx = 0;
+    int minSize = setTypeSize0(*(robj**)setobj);
 
-    for (j = 0; j < setnum; j++) {
-        robj *setobj = lookupKeyRead(c->db, setkeys[j]);
+    for (j = 1; j < setnum; j++) {
+        setobj = lookupKeyRead(c->db, c->argv[idx + j]);
         if (setobj == NULL) {
-            zfree(sets);
             return;
         }
         if (checkType(c, setobj, OBJ_SET)) {
-            zfree(sets);
             return;
         }
-        sets[j] = setobj;
+        int size = setTypeSize(*(robj**)setobj);
+        if (size < minIdx) {
+            minIdx = j;
+            minSize = size;
+        }
     }
-    /* Sort sets from the smallest to largest, this will improve our
-     * algorithm's performance */
-    qsort(sets,setnum,sizeof(robj*),qsortCompareRwfSetsByCardinality);
+    */
 
     /* Iterate all the elements of the first (smallest) set, and test
      * the element against all the other sets, if at least one set does
      * not include the element it is discarded */
-    si = setTypeInitIterator(sets[0]);
+    robj *minsetobj = lookupKeyRead(c->db, c->argv[idx]);
+    if (minsetobj == NULL) {
+        return;
+    }
+    if (checkType(c, minsetobj, OBJ_SET)) {
+        return;
+    }
+    si = setTypeInitSafeIterator(minsetobj);
     while((encoding = setTypeNext(si,&elesds,&intobj)) != -1) {
         for (j = 1; j < setnum; j++) {
-            if (sets[j] == sets[0]) continue;
+            robj *cursetobj = lookupKeyRead(c->db, c->argv[idx + j]);
+            if (cursetobj == NULL) {
+                return;
+            }
+            if (checkType(c, cursetobj, OBJ_SET)) {
+                return;
+            }
             if (encoding == OBJ_ENCODING_INTSET) {
                 /* intset with intset is simple... and fast */
-                if (sets[j]->encoding == OBJ_ENCODING_INTSET &&
-                    !intsetFind((intset*)sets[j]->ptr,intobj)) {
+                if (cursetobj->encoding == OBJ_ENCODING_INTSET &&
+                    !intsetFind((intset*)cursetobj->ptr,intobj)) {
                     
                     break;
                 /* in order to compare an integer with an object we
                  * have to use the generic function, creating an object
                  * for this */
-                } else if (sets[j]->encoding == OBJ_ENCODING_HT) {
+                } else if (cursetobj->encoding == OBJ_ENCODING_HT) {
                     elesds = sdsfromlonglong(intobj);
-                    if (!setTypeIsMember(sets[j],elesds)) {
+                    if (!setTypeIsMember(cursetobj,elesds)) {
                         sdsfree(elesds);
                         break;
                     } 
                     sdsfree(elesds);
                 }
             } else if (encoding == OBJ_ENCODING_HT) {
-                if (!setTypeIsMember(sets[j],elesds)) {
+                if (!setTypeIsMember(cursetobj,elesds)) {
                     break;
                 }
             }
@@ -287,7 +331,6 @@ void sinterResult(client *c, robj **setkeys, int setnum, robj *dstset) {
         }
     }
     setTypeReleaseIterator(si);
-    zfree(sets);
 }
 
 
@@ -298,6 +341,9 @@ void rwsunionstoreCommand(client *c) {
         CRDT_BEGIN
             CRDT_PREPARE
                 robj* set = lookupKeyRead(c->db,c->argv[1]);
+                if (set == NULL) {
+                    return;
+                }
                 robj* dstset = createIntsetObject();
                 sunionResult(c, c->argv + 2, c->argc - 2, dstset);
                 setTypeIterator *si;
@@ -336,12 +382,15 @@ void rwsdiffstoreCommand(client *c) {
         CRDT_BEGIN
             CRDT_PREPARE
                 robj *set = lookupKeyRead(c->db, c->argv[1]);
+                if (set == NULL) {
+                    return;
+                }
                 robj *dstset = createIntsetObject();
-                sdiffResult(c, c->argv + 2, c->argc - 2, dstset);
+                sdiffResult(c, 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
                 int remed = 0;
-                si = setTypeInitIterator(set);
+                si = setTypeInitSafeIterator(set);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
                     if (!setTypeIsMember(dstset, ele)) {
@@ -373,15 +422,18 @@ void rwsinterstoreCommand(client *c) {
         CRDT_BEGIN
             CRDT_PREPARE
                 robj *dstset = createIntsetObject();
-                robj *set = lookupKeyRead(c->db, c->argv[1]);
-                sinterResult(c, c->argv + 2, c->argc - 2, dstset);
+                robj *set = lookupKeyWrite(c->db, c->argv[1]);
+                if (set == NULL) {
+                    return;
+                }
+                sinterResult(c, 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
                 int remed = 0;
                 si = setTypeInitIterator(set);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
-                    if (!setTypeIsMember(dstset, ele)) {
+                    if (setTypeSize(dstset) == 0 || !setTypeIsMember(dstset, ele)) {
                         reh *e = rwseHTGet(c->db, c->argv[1], eleObj, 1);
                         if (EXISTS(e)) {
                             ++remed;

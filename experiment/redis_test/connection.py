@@ -244,35 +244,34 @@ def test():
         c.shutdown()
         c.clean()
 
-
+INIT = 0
+SET_DELAY = 1
 def main(argv):
     n = 3
     delay = "100ms 5ms"
     lo_delay = "10ms 2ms"
+    model = INIT
 
     if len(argv) == 1:
         n = int(argv[0])
     elif len(argv) == 4:
         delay = "{}ms {}ms".format(float(argv[0]), float(argv[1]))
         lo_delay = "{}ms {}ms".format(float(argv[2]), float(argv[3]))
-
-    print(n, delay, lo_delay)
+        model = SET_DELAY
 
     c = Connection(n)
-
-    c.remove_delay()
-    c.shutdown()
-    c.clean()
-
-    # c.reset()
-    #time.sleep(1)
-    
-    c.start()
-    time.sleep(1)
-    c.construct_repl()
-    time.sleep(1)
-    c.set_delay(lo_delay, delay)
-    time.sleep(1)
+    if model == INIT:
+        c.remove_delay()
+        c.shutdown()
+        c.clean()
+        c.start()
+        time.sleep(1)
+        c.construct_repl()
+        time.sleep(1)
+    elif model == SET_DELAY:
+        print(n, delay, lo_delay)
+        c.set_delay(lo_delay, delay)
+        time.sleep(1)
 
 
 if __name__ == "__main__":

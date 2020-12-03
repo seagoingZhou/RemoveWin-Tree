@@ -6,6 +6,7 @@
 #include "tree/tree_cmd.h"
 #include "set/set_cmd.h"
 #include "set/set_generator.h"
+#include "set/set_basic.h"
 
 using namespace std;
 
@@ -24,8 +25,8 @@ int ROUND = 0;
 
 inline void set_default()
 {
-    DELAY = 300;
-    DELAY_LOW = 60;
+    DELAY = 30;
+    DELAY_LOW = 6;
     TOTAL_SERVERS = 9;
     TOTAL_OPS = 500000;
     OP_PER_SEC = 5000;
@@ -162,24 +163,24 @@ void tree_experiment()
     system(pycmd);
     tree_test_dis("../result/RawData");
     
-/*
-    for (int i = 0; i < 30; i++)
-    {
-        test_delay(i);
-        test_replica(i);
-        test_speed(i);
-    }
-*/
     gettimeofday(&t2, nullptr);
     double time_diff_sec = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
     printf("total time: %f\n", time_diff_sec);
 }
 
 int setTestDis(const char *dir, int ssize, int ksize){
-    set_log setLog("rw",dir, ssize, ksize);
+    double hd = DELAY;
+    double ld = DELAY_LOW;
+    double hd_r = DELAY * 0.05;
+    double ld_r = DELAY_LOW * 0.05;
+    set_log setLog("rw",dir, ssize, ksize, MAX_KEY_SIZE, MIN_KEY_SIZE);
     set_generator gen(setLog);
     set_cmd read_members("",MEMBERS,"","","",setLog);
     setLog.initSet();
+
+    char pycmd[256];
+    sprintf(pycmd, "python3.6 ../redis_test/connection.py %f %f %f %f", hd, hd_r, ld, ld_r);
+    system(pycmd);
     
     exp_runner<string> runner(setLog, gen);
     runner.set_cmd_read(read_members);
@@ -189,18 +190,15 @@ int setTestDis(const char *dir, int ssize, int ksize){
 void set_exp() {
 
     set_default();
-    set_speed(100);
-    TOTAL_OPS = 1000;
-    double hd = DELAY;
-    double ld = DELAY_LOW;
-    double hd_r = DELAY * 0.05;
-    double ld_r = DELAY_LOW * 0.05;
-    char pycmd[256];
-    sprintf(pycmd, "python3.6 ../redis_test/connection.py %f %f %f %f", hd, hd_r, ld, ld_r);
-    system(pycmd);
+    set_speed(1000);
+    //TOTAL_OPS = 1000;
+    char pycmd0[256];
+    sprintf(pycmd0, "python3.6 ../redis_test/connection.py %d", 3);
+    system(pycmd0);
+    
     timeval t1{}, t2{};
     gettimeofday(&t1, nullptr);
-    setTestDis("../result/RawData", 20, 100);
+    setTestDis("../result/RawData", 150, 300);
     gettimeofday(&t2, nullptr);
     double time_diff_sec = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
     printf("total time: %f\n", time_diff_sec);

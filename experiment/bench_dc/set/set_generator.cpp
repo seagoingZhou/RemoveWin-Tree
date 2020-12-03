@@ -8,50 +8,76 @@ int set_generator::gen_and_exec(redisContext *c)
     string key;
     double rand = decide();
 
-    if (rand <= PADD) {
-        t = ADD;
-        set0 = ele.randomSetGet();
-        key = ele.nextKeyGenerator();
-    } else if (rand <= PREM) {
+    if (ele.isUpboundOver() || rand <= PREM) {
         t = REM;
-        set0 = ele.randomSetGet();
+        set0 = ele.getRemSetName();
         key = ele.randomKeyGet(set0);
-    } else if (rand <= PUNION) {
+    } else if (ele.isDownboundOver() || rand <= PADD) {
+        t = ADD;
+        set0 = ele.getAddSetName();
+        key = ele.nextKeyGenerator();
+    }  else if (rand <= PUNION) {
         t = UNION;
-        vector<string> sets = ele.randomSetGet2();
+        vector<string> sets;
+        sets = ele.getUnionSets();
+        if (sets.empty()) {
+            sets = ele.randomSetGet2();
+        } else if (sets.size() == 1) {
+            string tmpKey = ele.randomSetNextGet(sets[0]);
+            sets.push_back(tmpKey);
+        }
         set0 = sets[0];
         set1 = sets[1];
+        /*
         double conf = decide();
-
         if (conf < PR_UNION_INTER) {
             set1 = sinter.get(sets[1]);
         } else if (conf < PR_UNION_INTER + PR_UNION_DIFF) {
             set1 = sdiff.get(sets[1]);
         }
+        */
         sunion.add(set0);
     } else if (rand <= PINTER) {
         t = INTER;
-        vector<string> sets = ele.randomSetGet2();
+        vector<string> sets;
+        sets = ele.getDiffAndInterSets();
+        if (sets.empty()) {
+            sets = ele.randomSetGet2();
+        } else if (sets.size() == 1) {
+            string tmpKey = ele.randomSetNextGet(sets[0]);
+            sets.push_back(tmpKey);
+        }
         set0 = sets[0];
         set1 = sets[1];
+        /*
         double conf = decide();
         if (conf < PR_UNION_INTER) {
             set1 = sunion.get(sets[1]);
         } else if (conf < PR_UNION_INTER + PR_INTER_DIFF) {
             set1 = sdiff.get(sets[1]);
         }
+        */
         sinter.add(set0);
     } else {
         t = DIFF;
-        vector<string> sets = ele.randomSetGet2();
+        vector<string> sets;
+        sets = ele.getDiffAndInterSets();
+        if (sets.empty()) {
+            sets = ele.randomSetGet2();
+        } else if (sets.size() == 1) {
+            string tmpKey = ele.randomSetNextGet(sets[0]);
+            sets.push_back(tmpKey);
+        }
         set0 = sets[0];
         set1 = sets[1];
+        /*
         double conf = decide();
         if (conf < PR_UNION_DIFF) {
             set1 = sunion.get(sets[1]);
         } else if (conf < PR_UNION_DIFF + PR_INTER_DIFF) {
             set1 = sinter.get(sets[1]);
         }
+        */
         sdiff.add(set0);
     }
         

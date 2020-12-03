@@ -208,7 +208,7 @@ void pnsdiffstoreCommand(client *c) {
             CRDT_PREPARE
                 robj *dstset = createIntsetObject();
                 robj *set = lookupKeyRead(c->db, c->argv[1]);
-                sdiffResult(c, c->argv + 2, c->argc - 2, dstset);
+                sdiffResult(c, 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
                 int remed = 0;
@@ -242,7 +242,7 @@ void pnsinsterstoreCommand(client *c) {
             CRDT_PREPARE
                 robj *dstset = createIntsetObject();
                 robj *set = lookupKeyRead(c->db, c->argv[1]);
-                sinterResult(c, c->argv + 3, c->argc - 3, dstset);
+                sinterResult(c, 3, c->argc - 3, dstset);
                 setTypeIterator *si;
                 sds ele;
                 int remed = 0;

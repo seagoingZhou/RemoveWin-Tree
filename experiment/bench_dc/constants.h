@@ -34,7 +34,7 @@ extern int TOTAL_OPS;
 
 // time in seconds
 #define TIME_OVERHEAD 1
-#define TIME_MAX 1
+#define TIME_MAX 500
 
 #define MIN_TREE_SIZE 500
 
