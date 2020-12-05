@@ -1530,7 +1530,7 @@ addReplyStatus	networking.c	/^void addReplyStatus(client *c, const char *status)
 addReplyStatusFormat	networking.c	/^void addReplyStatusFormat(client *c, const char *fmt, ...) {$/;"	f
 addReplyStatusLength	networking.c	/^void addReplyStatusLength(client *c, const char *s, size_t len) {$/;"	f
 addReplyString	networking.c	/^void addReplyString(client *c, const char *s, size_t len) {$/;"	f
-addTag	t_orset.c	/^inline void addTag(list *list, sds tag) {$/;"	f
+addTag	t_orset.c	/^inline void addTag(dict* ht, sds tag) {$/;"	f
 add_ase	t_ozset.c	/^ase *add_ase(oze *e, lc *t)$/;"	f
 add_node	redis-trib.rb	/^    def add_node(node)$/;"	f	class:RedisTrib
 add_slots	redis-trib.rb	/^    def add_slots(slots)$/;"	f	class:ClusterNode
@@ -1747,7 +1747,7 @@ array	module.c	/^        struct RedisModuleCallReply *array; \/* Array of sub-re
 ascii_logo	asciilogo.h	/^char *ascii_logo =$/;"	v
 ase	t_ozset.c	/^} ase;$/;"	t	typeref:struct:aset_element	file:
 aseToSds	t_ozset.c	/^sds aseToSds(ase *a)$/;"	f
-aset	t_orset.c	/^    list *aset; $/;"	m	struct:OR_SET_element	file:
+aset	t_orset.c	/^    dict *aset; $/;"	m	struct:OR_SET_element	file:
 aset	t_ozset.c	/^    list *aset;$/;"	m	struct:ORI_RPQ_element	file:
 asetGet	t_ozset.c	/^ase *asetGet(oze *e, lc *t, int delete)$/;"	f
 aset_element	t_ozset.c	/^typedef struct aset_element$/;"	s	file:
@@ -4110,7 +4110,7 @@ removeCheck	RWFramework.h	/^inline int removeCheck(reh *h, vc *t)$/;"	f
 removeExpire	db.c	/^int removeExpire(redisDb *db, robj *key) {$/;"	f
 removeFunc	t_rzset.c	/^void removeFunc(client *c, rze *e, vc *t)$/;"	f
 removeMatchingSentinelFromMaster	sentinel.c	/^int removeMatchingSentinelFromMaster(sentinelRedisInstance *master, char *runid) {$/;"	f
-removeTag	t_orset.c	/^int removeTag(list *list, sds tag) {$/;"	f
+removeTag	t_orset.c	/^int removeTag(dict* ht, sds tag) {$/;"	f
 remove_tag	t_ozset.c	/^void remove_tag(oze *e, lc *t)$/;"	f
 renameCommand	db.c	/^void renameCommand(client *c) {$/;"	f
 renameGenericCommand	db.c	/^void renameGenericCommand(client *c, int nx) {$/;"	f
@@ -4319,7 +4319,7 @@ rpoplpushCommand	t_list.c	/^void rpoplpushCommand(client *c) {$/;"	f
 rpoplpushHandlePush	t_list.c	/^void rpoplpushHandlePush(client *c, robj *dstkey, robj *dstobj, robj *value) {$/;"	f
 rpushCommand	t_list.c	/^void rpushCommand(client *c) {$/;"	f
 rpushxCommand	t_list.c	/^void rpushxCommand(client *c) {$/;"	f
-rset	t_orset.c	/^    list *rset;$/;"	m	struct:OR_SET_element	file:
+rset	t_orset.c	/^    dict *rset;$/;"	m	struct:OR_SET_element	file:
 rset	t_ozset.c	/^    list *rset;$/;"	m	struct:ORI_RPQ_element	file:
 rsetGet	t_ozset.c	/^lc *rsetGet(oze *e, lc *t, int delete)$/;"	f
 rt	rax.h	/^    rax *rt;                \/* Radix tree we are iterating. *\/$/;"	m	struct:raxIterator

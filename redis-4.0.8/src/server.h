@@ -2092,6 +2092,9 @@ void pnsremCommand(client *c);
 void pnsunionstoreCommand(client *c);
 void pnsdiffstoreCommand(client *c);
 
+void orsaddCommand(client *c);
+void orsremCommand(client *c);
+
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));
 void free(void *ptr) __attribute__ ((deprecated));

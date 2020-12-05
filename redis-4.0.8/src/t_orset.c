@@ -27,16 +27,18 @@ static FILE *orsLog = NULL;
 typedef struct OR_SET_element
 {
     int current;
-    list *aset; 
-    list *rset;
+    dict *aset; 
+    dict *rset;
 } ore;
 
 ore *oreNew()
 {
     ore *e = zmalloc(sizeof(ore));
     e->current = 0;
-    e->aset = listCreate();
-    e->rset = listCreate();
+    e->aset = dictCreate(&setDictType, NULL);
+    e->rset = dictCreate(&setDictType, NULL);
+    //e->aset = NULL;
+    //e->rset = NULL;
     return e;
 }
 
@@ -67,31 +69,28 @@ ore *oreHTGet(redisDb *db, robj *tname, robj *key, int create)
     return e;
 }
 
-inline void addTag(list *list, sds tag) {
+inline void addTag(dict* ht, sds tag) {
     sds itag = sdsnew(tag);
-    istAddNodeTail(list, itag);
+    dictEntry *de = dictAddRaw(ht, itag, NULL);
+    if (de) {
+        dictSetKey(ht, de, itag);
+        dictSetVal(ht, de, NULL);
+    }
+
 }
 
 inline int lookup(ore* e) {
-    return listLength(e->aset);
+    return dictSize((const dict*)e->aset);
 }
 
-int removeTag(list *list, sds tag) {
-    int ret = 0;
-    listNode *ln;
-    listIter li;
-    listRewind(list, &li);
-    while ((ln = listNext(&li)))
-    {
-        sds itag = ln->value;
-        if (sdscmp(tag, itag) == 0){
-            sdsfree(itag);
-            listDelNode(list, ln);
-            ret = 1;
-            break;
+int removeTag(dict* ht, sds tag) {
+    if (dictDelete(ht, tag) == DICT_OK) {
+        if (htNeedsResize(ht)) {
+            dictResize(ht);
         }
+        return 1;
     }
-    return ret;
+    return 0;
 }
 
 void orsaddGenericCommand(client* c, robj* setName) {
@@ -107,7 +106,7 @@ void orsaddGenericCommand(client* c, robj* setName) {
         int idx = n - 3 - 2 * i;
         ore *e = oreHTGet(c->db, c->rargv[1], c->rargv[idx], 1);
         sds tag = c->rargv[idx + 1]->ptr;
-        if (!removeTag(e->rset, tag)) {
+        if (removeTag(e->rset, tag) == 0) {
             addTag(e->aset, tag);
         }
         if (lookup(e) > 0) {
@@ -126,18 +125,20 @@ void orsremGenericCommand(client* c, robj* setName) {
     }
     
     int jdx = n - 2;
-    int tagNum;
+    long long tagNum = 1;
     getLongLongFromObject(c->rargv[jdx], &tagNum);
     int idx = jdx - tagNum - 1;
     robj* set = getSetOrCreate(c->db, setName, c->rargv[idx]);
     while (remed > 0) {
-        ore *e = oreHTGet(c->db, c->rargv[1], c->rargv[idx], 1);
+    
+        ore *e = oreHTGet(c->db, setName, c->rargv[idx], 1);
         for (i = idx + 1; i < jdx; ++i) {
             sds tag = c->rargv[i]->ptr;
-            if (!removeTag(e->aset, tag)) {
+            if (removeTag(e->aset, tag) == 0) {
                 addTag(e->rset, tag);
             }
         }
+        
         if (lookup(e) == 0) {
             setTypeRemove(set, c->rargv[idx]->ptr);
         }
@@ -161,14 +162,14 @@ void orsaddCommand(client *c) {
                 int j;
                 long long added = 0;
 
-                set = lookupKeyRead(c->db,c->argv[1]);
+                set = lookupKeyRead(c->db, c->argv[1]);
                 for (j = 2; j < c->argc; j++) {
                     if (set == NULL || !setTypeIsMember(set, c->argv[j]->ptr)) {
                         ++added;
                         ore *e = oreHTGet(c->db, c->argv[1], c->argv[j], 1);
                         lc *t = LC_NEW(e->current);
                         ++e->current;
-                        RARGV_ADD_SDS(c->argv[j]->ptr);
+                        RARGV_ADD_SDS(sdsnew(c->argv[j]->ptr));
                         RARGV_ADD_SDS(lcToSds(t));
                         zfree(t);
                     }
@@ -193,22 +194,29 @@ void orsremCommand(client *c) {
                 robj *set;
                 int j;
                 long long remed = 0;
-                int tagNum;
+                long long tagNum;
 
-                if ((set = lookupKeyWriteOrReply(c,c->argv[1],shared.czero))) {
+                if ((set = lookupKeyWriteOrReply(c,c->argv[1],shared.czero)) == NULL ||
+                    checkType(c,set,OBJ_SET)) {
+                        
                     return;
                 }
+                
                 for (j = 2; j < c->argc; j++) {
                     if (setTypeIsMember(set, c->argv[j]->ptr)) {
                         ++remed;
+                        RARGV_ADD_SDS(sdsnew(c->argv[j]->ptr));
                         ore *e = oreHTGet(c->db, c->argv[1], c->argv[j], 1);
-                        tagNum = listLength(e->aset);
-                        listNode *ln;
-                        listIter li;
-                        listRewind(e->aset, &li);
-                        while ((ln = listNext(&li))) {
-                            RARGV_ADD_SDS(ln->value);
+                        tagNum = dictSize(e->aset);
+                        dictIterator *iter = dictGetSafeIterator(e->aset);
+                        dictEntry *de = dictNext(iter);
+                        while (de != NULL) {
+                            sds tag = dictGetKey(de);
+                            RARGV_ADD_SDS(sdsnew(tag));
+                            de = dictNext(iter);
                         }
+                        dictReleaseIterator(iter);
+                        
                         RARGV_ADD_SDS(sdsfromlonglong(tagNum));
                     }
                 }
@@ -238,7 +246,7 @@ void orsunionstoreCommand(client *c) {
                 si = setTypeInitIterator(dstset);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
-                    reh *e = rwseHTGet(c->db, c->argv[1], eleObj->ptr, 1);
+                    ore *e = oreHTGet(c->db, c->argv[1], eleObj, 1);
                     if (set == NULL || !setTypeIsMember(set, ele)) {
                         ++added;
                         ore *e = oreHTGet(c->db, c->argv[1], eleObj, 1);
@@ -283,13 +291,15 @@ void orsdiffstoreCommand(client *c) {
                     if (setTypeIsMember(set, ele)) {
                          ++remed;
                         ore *e = oreHTGet(c->db, c->argv[1], eleObj, 1);
-                        tagNum = listLength(e->aset);
-                        listNode *ln;
-                        listIter li;
-                        listRewind(e->aset, &li);
-                        while ((ln = listNext(&li))) {
-                            RARGV_ADD_SDS(ln->value);
+                        tagNum = dictSize(e->aset);
+                        dictIterator *iter = dictGetSafeIterator(e->aset);
+                        dictEntry *de = dictNext(iter);
+                        while (de != NULL) {
+                            sds tag = dictGetKey(de);
+                            RARGV_ADD_SDS(sdsnew(tag));
+                            de = dictNext(iter);
                         }
+                        dictReleaseIterator(iter);
                         RARGV_ADD_SDS(sdsfromlonglong(tagNum));
                     }
                     sdsfree(ele);
@@ -303,7 +313,7 @@ void orsdiffstoreCommand(client *c) {
     #ifdef COUNT_OPS
                 ocount++;
     #endif
-                sremGenericCommand(c, c->rargv[1]);
+                orsremGenericCommand(c, c->rargv[1]);
         CRDT_END
 
 }
@@ -327,13 +337,15 @@ void orsinsterstoreCommand(client *c) {
                     if (!setTypeIsMember(dstset, ele)) {
                         ++remed;
                         ore *e = oreHTGet(c->db, c->argv[1], eleObj, 1);
-                        tagNum = listLength(e->aset);
-                        listNode *ln;
-                        listIter li;
-                        listRewind(e->aset, &li);
-                        while ((ln = listNext(&li))) {
-                            RARGV_ADD_SDS(ln->value);
+                        tagNum = dictSize(e->aset);
+                        dictIterator *iter = dictGetSafeIterator(e->aset);
+                        dictEntry *de = dictNext(iter);
+                        while (de != NULL) {
+                            sds tag = dictGetKey(de);
+                            RARGV_ADD_SDS(sdsnew(tag));
+                            de = dictNext(iter);
                         }
+                        dictReleaseIterator(iter);
                         RARGV_ADD_SDS(sdsfromlonglong(tagNum));
 
                     }

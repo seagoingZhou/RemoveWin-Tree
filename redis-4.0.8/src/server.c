@@ -350,6 +350,8 @@ struct redisCommand redisCommandTable[] = {
     {"pnsunionstore",pnsunionstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
     {"pnsdiff",sdiffCommand,-2,"rS",0,NULL,1,-1,1,0,0},
     {"pnsdiffstore",pnsdiffstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
+    {"orsadd",orsaddCommand,-3,"wmF",0,NULL,1,1,1,0,0},
+    {"orsrem",orsremCommand,-3,"wF",0,NULL,1,1,1,0,0},
 };
 
 /*============================ Utility functions ============================ */
