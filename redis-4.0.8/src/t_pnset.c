@@ -173,7 +173,7 @@ void pnsunionstoreCommand(client *c) {
                 sunionResult(c, c->argv + 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
-                int added = 0;
+                long long added = 0;
                 si = setTypeInitIterator(dstset);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
@@ -181,7 +181,7 @@ void pnsunionstoreCommand(client *c) {
                         ++added;
                         pne *e = pneHTGet(c->db, c->argv[1], eleObj, 1);
                         RARGV_ADD_SDS(sdsnew(ele));
-                        int cnt = 1 - e->current;
+                        long long cnt = 1 - e->current;
                         RARGV_ADD_SDS(sdsfromlonglong(cnt));
                     }
                     sdsfree(ele);
@@ -211,8 +211,8 @@ void pnsdiffstoreCommand(client *c) {
                 sdiffResult(c, 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
-                int remed = 0;
-                int tagNum;
+                long long remed = 0;
+                long long tagNum;
                 si = setTypeInitIterator(set);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     if (!setTypeIsMember(dstset, ele)) {
@@ -234,7 +234,7 @@ void pnsdiffstoreCommand(client *c) {
 
 }
 
-void pnsinsterstoreCommand(client *c) {
+void pnsinterstoreCommand(client *c) {
     #ifdef PN_OVERHEAD
         PRE_SET;
     #endif
@@ -242,10 +242,10 @@ void pnsinsterstoreCommand(client *c) {
             CRDT_PREPARE
                 robj *dstset = createIntsetObject();
                 robj *set = lookupKeyRead(c->db, c->argv[1]);
-                sinterResult(c, 3, c->argc - 3, dstset);
+                sinterResult(c, 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
-                int remed = 0;
+                long long remed = 0;
                 si = setTypeInitIterator(set);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     if (!setTypeIsMember(dstset, ele)) {

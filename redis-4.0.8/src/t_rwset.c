@@ -348,7 +348,7 @@ void rwsunionstoreCommand(client *c) {
                 sunionResult(c, c->argv + 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
-                int added = 0;
+                long long added = 0;
                 si = setTypeInitIterator(dstset);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
@@ -389,7 +389,7 @@ void rwsdiffstoreCommand(client *c) {
                 sdiffResult(c, 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
-                int remed = 0;
+                long long remed = 0;
                 si = setTypeInitSafeIterator(set);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
@@ -429,7 +429,7 @@ void rwsinterstoreCommand(client *c) {
                 sinterResult(c, 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
-                int remed = 0;
+                long long remed = 0;
                 si = setTypeInitIterator(set);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));

@@ -37,8 +37,6 @@ ore *oreNew()
     e->current = 0;
     e->aset = dictCreate(&setDictType, NULL);
     e->rset = dictCreate(&setDictType, NULL);
-    //e->aset = NULL;
-    //e->rset = NULL;
     return e;
 }
 
@@ -242,7 +240,7 @@ void orsunionstoreCommand(client *c) {
                 sunionResult(c, c->argv + 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
-                int added = 0;
+                long long added = 0;
                 si = setTypeInitIterator(dstset);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
@@ -280,18 +278,19 @@ void orsdiffstoreCommand(client *c) {
             CRDT_PREPARE
                 robj *dstset = createIntsetObject();
                 robj *set = lookupKeyRead(c->db, c->argv[1]);
-                sunionResult(c, c->argv + 3, c->argc - 3, dstset);
+                sdiffResult(c, 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
-                int remed = 0;
-                int tagNum;
-                si = setTypeInitIterator(dstset);
+                long long remed = 0;
+                long long tagNum;
+                si = setTypeInitIterator(set);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
-                    if (setTypeIsMember(set, ele)) {
+                    if (!setTypeIsMember(dstset, ele)) {
                          ++remed;
                         ore *e = oreHTGet(c->db, c->argv[1], eleObj, 1);
                         tagNum = dictSize(e->aset);
+                        RARGV_ADD_SDS(sdsnew(ele));
                         dictIterator *iter = dictGetSafeIterator(e->aset);
                         dictEntry *de = dictNext(iter);
                         while (de != NULL) {
@@ -318,7 +317,7 @@ void orsdiffstoreCommand(client *c) {
 
 }
 
-void orsinsterstoreCommand(client *c) {
+void orsinterstoreCommand(client *c) {
     #ifdef PN_OVERHEAD
         PRE_SET;
     #endif
@@ -326,11 +325,11 @@ void orsinsterstoreCommand(client *c) {
             CRDT_PREPARE
                 robj *dstset = createIntsetObject();
                 robj *set = lookupKeyRead(c->db, c->argv[1]);
-                sinterResult(c, c->argv + 3, c->argc - 3, dstset);
+                sinterResult(c, 2, c->argc - 2, dstset);
                 setTypeIterator *si;
                 sds ele;
-                int remed = 0;
-                int tagNum;
+                long long remed = 0;
+                long long tagNum;
                 si = setTypeInitIterator(set);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     robj *eleObj = createObject(OBJ_STRING, sdsnew(ele));
@@ -338,6 +337,7 @@ void orsinsterstoreCommand(client *c) {
                         ++remed;
                         ore *e = oreHTGet(c->db, c->argv[1], eleObj, 1);
                         tagNum = dictSize(e->aset);
+                        RARGV_ADD_SDS(sdsnew(ele));
                         dictIterator *iter = dictGetSafeIterator(e->aset);
                         dictEntry *de = dictNext(iter);
                         while (de != NULL) {
