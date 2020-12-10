@@ -37,7 +37,7 @@ inline void set_speed(int speed)
 {
     set_default();
     OP_PER_SEC = speed;
-    TOTAL_OPS = 100 * speed;
+    TOTAL_OPS = 10 * speed;
 }
 
 inline void set_replica(int replica)
@@ -173,7 +173,7 @@ int setTestDis(const char *dir, int ssize, int ksize){
     double ld = DELAY_LOW;
     double hd_r = DELAY * 0.05;
     double ld_r = DELAY_LOW * 0.05;
-    set_log setLog("rw",dir, ssize, ksize, MAX_KEY_SIZE, MIN_KEY_SIZE);
+    set_log setLog("or",dir, ssize, ksize, MAX_KEY_SIZE, MIN_KEY_SIZE);
     set_generator gen(setLog);
     set_cmd read_members("",MEMBERS,"","","",setLog);
     setLog.initSet();

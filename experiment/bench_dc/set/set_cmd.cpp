@@ -28,6 +28,7 @@ int set_cmd::exec(redisContext *c) {
     }
 
     auto r = static_cast<redisReply *>(redisCommand(c, tmp));
+    printf("executing %s\n", tmp);
     if (r == nullptr) {
         printf("host %s:%d terminated.\nexecuting %s\n", c->tcp.host, c->tcp.port, tmp);
         exit(-1);
