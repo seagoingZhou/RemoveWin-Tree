@@ -25,8 +25,8 @@ int ROUND = 0;
 
 inline void set_default()
 {
-    DELAY = 30;
-    DELAY_LOW = 6;
+    DELAY = 150;
+    DELAY_LOW = 30;
     TOTAL_SERVERS = 9;
     TOTAL_OPS = 500000;
     OP_PER_SEC = 5000;
@@ -37,7 +37,7 @@ inline void set_speed(int speed)
 {
     set_default();
     OP_PER_SEC = speed;
-    TOTAL_OPS = 10 * speed;
+    TOTAL_OPS = 100 * speed;
 }
 
 inline void set_replica(int replica)
@@ -156,11 +156,16 @@ void tree_experiment()
     double ld = DELAY_LOW;
     double hd_r = DELAY * 0.05;
     double ld_r = DELAY_LOW * 0.05;
+    TOTAL_SERVERS = 3;
     timeval t1{}, t2{};
     gettimeofday(&t1, nullptr);
+    char pycmd0[256];
     char pycmd[256];
+    sprintf(pycmd0, "python3.6 ../redis_test/connection.py %d", 1);
+    system(pycmd0);
     sprintf(pycmd, "python3.6 ../redis_test/connection.py %f %f %f %f", hd, hd_r, ld, ld_r);
     system(pycmd);
+    tree_init();
     tree_test_dis("../result/RawData");
     
     gettimeofday(&t2, nullptr);
@@ -208,10 +213,10 @@ int main(int argc, char *argv[])
 {
     //time_max();
     //test_count_dis_one(ips[0],6379);
-    //tree_experiment();
+    tree_experiment();
     //delayTest();
     //speedTest();
-    set_exp();
+    //set_exp();
 
     return 0;
 }

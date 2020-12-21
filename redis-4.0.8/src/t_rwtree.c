@@ -30,6 +30,7 @@ static FILE *rwtLog = NULL;
 #endif
 
 /**********************队列*****************************/
+/*
 typedef struct QNode{
         sds data;
         struct QNode *next;
@@ -84,6 +85,7 @@ sds deQueue(Queue* q){
     return val;
    
 }
+*/
 
 /*******************tree node**********************/
 
@@ -163,9 +165,32 @@ int istreeMember(client* c, robj* tname,const sds id){
 robj* subTree(redisDb *db, robj* treeHT, sds uid){
     
     robj* subtree = createSetObject();
-    Queue* queue = initQueue();
-    enQueue(queue,sdsdup(uid));
+    //Queue* queue = initQueue();
+    //enQueue(queue,sdsdup(uid));
 
+    list *list = listCreate();
+    listAddNodeTail(list, sdsnew(uid));
+    while (list->len != 0) {
+        sds curId = (sds)list->head->value;
+        listDelNode(list, list->head);
+        rtn* tn = rtnHTGet(db,treeHT,curId,0);
+        if (tn && EXISTS(tn)){
+            setTypeAdd(subtree,curId);
+            if (setTypeSize(tn->tdata->children)>0){
+                sds ele;
+                setTypeIterator *si;
+                si = setTypeInitIterator(tn->tdata->children);
+                while((ele = setTypeNextObject(si)) != NULL) {
+                    listAddNodeTail(list, ele);
+                }
+                setTypeReleaseIterator(si);
+            }
+            
+        }
+        sdsfree(curId);
+    }
+
+    /*
     while(!QueueEmpty(queue)){
         sds parent_id = deQueue(queue);
         //rtn* tn = tnHTGet(db, treeHT, parent_id, 0);
@@ -191,6 +216,8 @@ robj* subTree(redisDb *db, robj* treeHT, sds uid){
     sdsfree(queue->front->data);
     free(queue->front);
     free(queue);
+    */
+   listEmpty(list);
 
     return subtree;
 }
