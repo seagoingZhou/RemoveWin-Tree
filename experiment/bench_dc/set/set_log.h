@@ -125,7 +125,18 @@ public:
         }
         return res;
     }
+    
+    void remoteMaxAdd(string setName) {
+        lock_guard<mutex> lk(mtx);
+        remoteMaxSets.insert(setName);
 
+    }
+
+    void remoteMinAdd(string setName) {
+        lock_guard<mutex> lk(mtx);
+        remoteMinSets.insert(setName);
+
+    }
 };
 
 

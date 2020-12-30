@@ -273,12 +273,13 @@ void set_log::smembers(string setName, redisReply *reply) {
 
         if (reply->type == REDIS_REPLY_ARRAY) {
             readSum = sum;
+            /*
             if (sum > REMOTE_MAX_KEY_SIZE) {
                 remoteMaxSets.insert(setName);
             } else if (sum < REMOTE_MIN_KEY_SIZE) {
                 remoteMinSets.insert(setName);
             }
-
+            */
             for (int i = 0; i < sum; i++) {
                 char tmpChar[64];
                 strcpy(tmpChar, reply->element[i]->str);

@@ -178,7 +178,7 @@ int setTestDis(const char *dir, int ssize, int ksize){
     double ld = DELAY_LOW;
     double hd_r = DELAY * 0.05;
     double ld_r = DELAY_LOW * 0.05;
-    set_log setLog("or",dir, ssize, ksize, MAX_KEY_SIZE, MIN_KEY_SIZE);
+    set_log setLog("rw",dir, ssize, ksize, MAX_KEY_SIZE, MIN_KEY_SIZE);
     set_generator gen(setLog);
     set_cmd read_members("",MEMBERS,"","","",setLog);
     setLog.initSet();
@@ -213,10 +213,10 @@ int main(int argc, char *argv[])
 {
     //time_max();
     //test_count_dis_one(ips[0],6379);
-    tree_experiment();
+    //tree_experiment();
     //delayTest();
     //speedTest();
-    //set_exp();
+    set_exp();
 
     return 0;
 }

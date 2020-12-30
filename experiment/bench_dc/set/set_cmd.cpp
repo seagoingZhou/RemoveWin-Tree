@@ -28,10 +28,16 @@ int set_cmd::exec(redisContext *c) {
     }
 
     auto r = static_cast<redisReply *>(redisCommand(c, tmp));
-    printf("executing %s\n", tmp);
+    auto r1 = static_cast<redisReply *>(redisCommand(c, "scard %s", set0.c_str()));
     if (r == nullptr) {
         printf("host %s:%d terminated.\nexecuting %s\n", c->tcp.host, c->tcp.port, tmp);
         exit(-1);
+    }
+
+    if (r1->integer > REMOTE_MAX_KEY_SIZE) {
+        ele.remoteMaxAdd(set0);
+    } else if (r1->integer < REMOTE_MIN_KEY_SIZE) {
+        ele.remoteMinAdd(set0);
     }
     
     switch (t) {
@@ -69,6 +75,7 @@ int set_cmd::exec(redisContext *c) {
             break;
     }
     freeReplyObject(r);
+    freeReplyObject(r1);
     return 0;
 }
 

@@ -5,11 +5,11 @@
 #define MAX_INIT 100
 #define MAX_INCR 50
 
-#define PR_SADD 0.25
-#define PR_SREM 0.15
-#define PR_SUNION 0.25
-#define PR_SINTER 0.2
-#define PR_SDIFF 0.15
+#define PR_SADD 0.45
+#define PR_SREM 0.35
+#define PR_SUNION 0.06
+#define PR_SINTER 0.07
+#define PR_SDIFF 0.07
 
 #define PREM PR_SADD
 #define PADD (PREM + PR_SREM)
