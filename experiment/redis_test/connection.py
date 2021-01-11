@@ -58,6 +58,10 @@ def _reset_redis(sshs):
     time.sleep(1)
     print("reset done.")
 
+def _set_delay_sh(ssh, lo_delay, delay, ip1, ip2, limit=100000):
+    cmd = "sh /Redis/RWTree/docker/delay-set.sh {ip1} {ip2} {delay} {lo_delay}".format(ip1=ip1, ip2=ip2, delay=delay, lo_delay=lo_delay)
+    stdin, stdout, stderr = ssh.exec_command(cmd, get_pty=True)
+
 
 def _set_delay(ssh, lo_delay, delay, ip1, ip2, limit=100000):
     cmd = (
@@ -152,6 +156,15 @@ class Connection:
         _set_delay(self.sshs[2], lo_delay, delay, self.ips[0], self.ips[1])
         time.sleep(1)
         print("delay set.")
+
+    def set_delay_sh(self, lo_delay, delay):
+        _set_delay_sh(self.sshs[0], lo_delay, delay, self.ips[1], self.ips[2])
+        time.sleep(1)
+        _set_delay_sh(self.sshs[1], lo_delay, delay, self.ips[2], self.ips[0])
+        time.sleep(1)
+        _set_delay_sh(self.sshs[2], lo_delay, delay, self.ips[0], self.ips[1])
+        time.sleep(1)
+        print("delay set shell.")
 
     def remove_delay(self):
         cmd = ("tc filter del dev eth0",
@@ -270,7 +283,7 @@ def main(argv):
         time.sleep(1)
     elif model == SET_DELAY:
         print(n, delay, lo_delay)
-        c.set_delay(lo_delay, delay)
+        c.set_delay_sh(lo_delay, delay)
         time.sleep(1)
 
 

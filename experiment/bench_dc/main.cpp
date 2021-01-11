@@ -156,12 +156,12 @@ void tree_experiment()
     double ld = DELAY_LOW;
     double hd_r = DELAY * 0.05;
     double ld_r = DELAY_LOW * 0.05;
-    TOTAL_SERVERS = 3;
+    TOTAL_SERVERS = 9;
     timeval t1{}, t2{};
     gettimeofday(&t1, nullptr);
     char pycmd0[256];
     char pycmd[256];
-    sprintf(pycmd0, "python3.6 ../redis_test/connection.py %d", 1);
+    sprintf(pycmd0, "python3.6 ../redis_test/connection.py %d", TOTAL_SERVERS/3);
     system(pycmd0);
     sprintf(pycmd, "python3.6 ../redis_test/connection.py %f %f %f %f", hd, hd_r, ld, ld_r);
     system(pycmd);
@@ -213,10 +213,10 @@ int main(int argc, char *argv[])
 {
     //time_max();
     //test_count_dis_one(ips[0],6379);
-    //tree_experiment();
+    tree_experiment();
     //delayTest();
     //speedTest();
-    set_exp();
+    //set_exp();
 
     return 0;
 }
