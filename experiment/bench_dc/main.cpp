@@ -25,19 +25,18 @@ int ROUND = 0;
 
 inline void set_default()
 {
-    DELAY = 150;
-    DELAY_LOW = 30;
+    DELAY = 100;
+    DELAY_LOW = 20;
     TOTAL_SERVERS = 9;
     TOTAL_OPS = 500000;
     OP_PER_SEC = 5000;
-    ROUND = 0;
 }
 
 inline void set_speed(int speed)
 {
     set_default();
     OP_PER_SEC = speed;
-    TOTAL_OPS = 100 * speed;
+    TOTAL_OPS = 60 * speed;
 }
 
 inline void set_replica(int replica)
@@ -173,12 +172,13 @@ void tree_experiment()
     printf("total time: %f\n", time_diff_sec);
 }
 
-int setTestDis(const char *dir, int ssize, int ksize){
+
+int setTestDis(const char *type, const char *dir, int ssize, int ksize){
     double hd = DELAY;
     double ld = DELAY_LOW;
     double hd_r = DELAY * 0.05;
     double ld_r = DELAY_LOW * 0.05;
-    set_log setLog("rw",dir, ssize, ksize, MAX_KEY_SIZE, MIN_KEY_SIZE);
+    set_log setLog(type, dir, ssize, ksize, MAX_KEY_SIZE, MIN_KEY_SIZE);
     set_generator gen(setLog);
     set_cmd read_members("",MEMBERS,"","","",setLog);
     setLog.initSet();
@@ -203,20 +203,62 @@ void set_exp() {
     
     timeval t1{}, t2{};
     gettimeofday(&t1, nullptr);
-    setTestDis("../result/RawData", 150, 300);
+    setTestDis("rw","../result/RawData", 150, 300);
     gettimeofday(&t2, nullptr);
     double time_diff_sec = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
     printf("total time: %f\n", time_diff_sec);
+}
+
+int setSpeed(const char *type, int speed) {
+    set_default();
+    set_speed(speed);
+    int ret = 0;
+
+    char pycmd0[256];
+    sprintf(pycmd0, "python3.6 ../redis_test/connection.py %d", 3);
+    system(pycmd0);
+    
+    timeval t1{}, t2{};
+    gettimeofday(&t1, nullptr);
+    ret = setTestDis(type, "../result/RawData", 150, 500);
+    gettimeofday(&t2, nullptr);
+    double time_diff_sec = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
+    printf("total time: %f\n", time_diff_sec);
+
+    return ret;
+
+}
+
+void setTestSpeed(const char *type) {
+    int speed = 2500;
+    int ret = 0;
+    ROUND = 0;
+    while (speed >= 500) {
+        ret = setSpeed(type, speed);
+        if (ret == 0) {
+            if (ROUND < 50) {
+                ++ROUND;
+            } else {
+                speed -= 500;
+                ROUND = 0;
+            }
+            
+        }
+    }
 }
 
 int main(int argc, char *argv[])
 {
     //time_max();
     //test_count_dis_one(ips[0],6379);
-    tree_experiment();
+    //tree_experiment();
     //delayTest();
     //speedTest();
     //set_exp();
+    setTestSpeed("rw");
+    setTestSpeed("pn");
+    setTestSpeed("or");
+    //setSpeed(3000);
 
     return 0;
 }

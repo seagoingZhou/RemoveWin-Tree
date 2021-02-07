@@ -302,7 +302,7 @@ void set_log::smembers(string setName, redisReply *reply) {
 
 void set_log::write_file() {
     char n[64], f[64];
-    sprintf(n, "%s/%s-%d-%d-%d-%d", dir, type, TOTAL_SERVERS, OP_PER_SEC, DELAY, DELAY_LOW);
+    sprintf(n, "%s/%s-%d-%d-%d-%d-%d", dir, type, TOTAL_SERVERS, OP_PER_SEC, DELAY, DELAY_LOW, ROUND);
     bench_mkdir(n);
 
     sprintf(f, "%s/s.set", n);

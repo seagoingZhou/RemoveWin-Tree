@@ -26,7 +26,7 @@ static FILE *pnsLog = NULL;
 
 typedef struct PN_SET_element
 {
-    int current;
+    long long current;
 } pne;
 
 pne *pneNew()
@@ -115,7 +115,7 @@ void pnsaddCommand(client *c) {
                         ++added;
                         pne *e = pneHTGet(c->db, c->argv[1], c->argv[j], 1);
                         RARGV_ADD_SDS(sdsnew(c->argv[j]->ptr));
-                        int cnt = 1 - e->current;
+                        long long cnt = (long long)1 - e->current;
                         RARGV_ADD_SDS(sdsfromlonglong(cnt));
                     }
                 }
@@ -181,7 +181,7 @@ void pnsunionstoreCommand(client *c) {
                         ++added;
                         pne *e = pneHTGet(c->db, c->argv[1], eleObj, 1);
                         RARGV_ADD_SDS(sdsnew(ele));
-                        long long cnt = 1 - e->current;
+                        long long cnt = (long long)1 - e->current;
                         RARGV_ADD_SDS(sdsfromlonglong(cnt));
                     }
                     sdsfree(ele);
@@ -212,7 +212,6 @@ void pnsdiffstoreCommand(client *c) {
                 setTypeIterator *si;
                 sds ele;
                 long long remed = 0;
-                long long tagNum;
                 si = setTypeInitIterator(set);
                 while((ele = setTypeNextObject(si)) != NULL) {
                     if (!setTypeIsMember(dstset, ele)) {

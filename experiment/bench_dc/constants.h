@@ -14,6 +14,7 @@ extern int DELAY;
 extern int DELAY_LOW;
 extern int TOTAL_SERVERS;
 extern int OP_PER_SEC;
+extern int ROUND;
 
 extern int TOTAL_OPS;
 

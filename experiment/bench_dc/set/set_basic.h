@@ -18,8 +18,8 @@
 
 #define MAX_KEY_SIZE 1000
 #define MIN_KEY_SIZE 10
-#define REMOTE_MAX_KEY_SIZE 400
-#define REMOTE_MIN_KEY_SIZE 200
+#define REMOTE_MAX_KEY_SIZE 600
+#define REMOTE_MIN_KEY_SIZE 400
 
 
 enum set_op_type
