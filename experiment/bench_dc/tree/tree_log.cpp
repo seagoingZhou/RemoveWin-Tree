@@ -93,6 +93,13 @@ void tree_log::changevalue(string uid,string value)
 
 }
 
+void tree_log::overhead(redisReply *reply) {
+    if (reply->type == REDIS_REPLY_INTEGER) {
+        long long count = reply->integer;
+        ovhd.push_back(count);
+    }
+}
+
 void tree_log::members(redisReply *reply){
     vector<string> t_read;
     vector<string> t_actural;
@@ -232,6 +239,17 @@ void tree_log::write_file(){
 
     fflush(tree);
     fclose(tree);
+
+    if (!ovhd.empty()) {
+        sprintf(f, "%s/s.ovhd", n);
+        FILE *oh = fopen(f, "w");
+        for (long long cnt : ovhd) {
+            fprintf(oh,"%lld\n",cnt);
+        }
+
+        fflush(oh);
+        fclose(oh);
+    }
 }
 
 int tree_log::tSize(){

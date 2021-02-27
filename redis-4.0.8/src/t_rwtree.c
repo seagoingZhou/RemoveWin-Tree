@@ -9,6 +9,14 @@
 #define ROOT_ID "0,0"
 #define UIDLENGTH 32
 
+#ifdef TREE_OVERHEAD
+long long ovhd_cnt = 0;
+#endif
+
+#define RWF_NODE_STRINGS(e) (2 * sdslen(e->tdata->uid) + sdslen(e->tdata->name) + sdslen(e->tdata->parent))
+#define RWF_NODE_BASE(e) (sizeof(rtn) + sizeof(rawt) + 2*sizeof(vc) + sizeof(robj))
+#define RWF_NODE_SIZE(e) RWF_NODE_BASE(e) + RWF_NODE_STRINGS(e)
+
 #ifdef RWT_OVERHEAD
 #define SUF_RZETOTAL "rwttotal"
 static redisDb *cur_db = NULL;
@@ -441,6 +449,11 @@ void treeNodeInsertWithUid(client *c, redisDb *db,robj *tname, robj *nodename){
                 PID(tn) = r->id;    
                 server.dirty++;
             }
+
+            #ifdef TREE_OVERHEAD
+            long inc = RWF_NODE_SIZE(tn);
+            ovhd_cnt += inc;
+            #endif
             
             deleteVC(r);
             deleteVC(r_p);
@@ -676,3 +689,10 @@ void ChangeValueCommand(client *c){
 void MoveCommand(client* c){
     treeNodeMove(c,c->db,c->argv[1]);
 }
+
+/* rwftreeovhd tname*/
+#ifdef TREE_OVERHEAD
+void treeOverhead(client* c) {
+    addReplyLongLong(c, ovhd_cnt);
+}
+#endif

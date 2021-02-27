@@ -21,10 +21,13 @@ int tree_cmd::exec(redisContext *c)
         case treemembers:
             sprintf(tmp, "treemembers t");
             break;
+        case overhead:
+            sprintf(tmp, "rwftreeovhd t");
+            break;
         
     }
     auto r = static_cast<redisReply *>(redisCommand(c, tmp));
-
+    //printf("executing %s\n", tmp);
     if (r == nullptr)
     {
         printf("host %s:%d terminated.\nexecuting %s\n", c->tcp.host, c->tcp.port, tmp);
@@ -53,6 +56,9 @@ int tree_cmd::exec(redisContext *c)
             //printf("host %s:%d executing %s\n", c->tcp.host, c->tcp.port, tmp);
             break;
         }
+        case overhead:
+            ele.overhead(r);
+            break;
     }
 
     freeReplyObject(r);

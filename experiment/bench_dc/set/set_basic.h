@@ -21,6 +21,12 @@
 #define REMOTE_MAX_KEY_SIZE 600
 #define REMOTE_MIN_KEY_SIZE 400
 
+#define SIMPLE 0
+#define COMPLEX 1
+#define MODEL COMPLEX
+
+#define P_ADD_REM 0.5
+
 
 enum set_op_type
 {

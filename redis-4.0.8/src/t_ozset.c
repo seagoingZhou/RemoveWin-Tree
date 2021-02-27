@@ -69,7 +69,7 @@ oze *ozeNew()
     return e;
 }
 
-#ifdef RW_OVERHEAD
+//#ifdef RW_OVERHEAD
 
 robj *_get_ovhd_count(redisDb *db, sds tname, const char *suf)
 {
@@ -97,7 +97,7 @@ long get_ovhd_count(redisDb *db, sds tname, const char *suf)
     return (long) (o->ptr);
 }
 
-#endif
+//#endif
 
 
 ase *asetGet(oze *e, lc *t, int delete)

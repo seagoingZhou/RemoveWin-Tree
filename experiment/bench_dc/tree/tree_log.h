@@ -43,6 +43,8 @@ private:
     mutex mtx,m_mtx;
     vector<t_log> tLog;
 
+    vector<long long> ovhd;
+
 public:
     tree_log(const char *type, const char *dir) : rdt_log(type, dir) {
         string id = "0,0";
@@ -63,6 +65,7 @@ public:
     void del(string pid);
     void changevalue(string uid,string value);
     void members(redisReply *reply);
+    void overhead(redisReply *reply);
     void write_file();
 
     string random_get();

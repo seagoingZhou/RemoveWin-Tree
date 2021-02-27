@@ -33,7 +33,7 @@
 
 enum op_type
 {
-    insert = 0, del = 1, changevalue = 2, treemembers = 3
+    insert = 0, del = 1, changevalue = 2, treemembers = 3, overhead = 4
 };
 
 enum tree_type

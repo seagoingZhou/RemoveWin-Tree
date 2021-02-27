@@ -91,8 +91,13 @@ void set_log::sdiff(string setDst, string setSrc) {
 
 void set_log::initSet() {
     redisReply *reply;
-    redisContext *c = redisConnect("192.168.192.1", 6379);
+    redisContext *c = redisConnect("192.168.193.1", 6379);
     printf("set init begin...\n");
+    if (MODEL == SIMPLE) {
+        setSize = 1;
+        initKeySize = 5000;
+
+    }
     for (int j = 0; j < setSize; ++j) {
         string setName = "set" + to_string(j);
         char tmp[512];

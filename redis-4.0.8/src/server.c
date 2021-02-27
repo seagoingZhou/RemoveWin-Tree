@@ -335,6 +335,9 @@ struct redisCommand redisCommandTable[] = {
     {"treechangevalue",ChangeValueCommand,-4,"wmF",0,NULL,1,1,1,0,0},
     {"treemove",MoveCommand,-4,"wmF",0,NULL,1,1,1,0,0},
     {"treemembers",treeMembersCommand,2,"rF",0,NULL,1,1,1,0,0},
+#ifdef TREE_OVERHEAD
+    {"rwftreeovhd",treeOverhead,2,"rF",0,NULL,1,1,1,0,0},
+#endif
     //{"subtree",subtreeCommand,3,"rF",0,NULL,1,1,1,0,0}
     {"rwsadd",rwsaddCommand,-3,"wmF",0,NULL,1,1,1,0,0},
     {"rwsrem",rwsremCommand,-3,"wF",0,NULL,1,1,1,0,0},

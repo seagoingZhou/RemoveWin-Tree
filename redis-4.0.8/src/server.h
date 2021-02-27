@@ -2050,6 +2050,8 @@ void inc_ovhd_count(redisDb* db,sds tname,const char* suf,long i);
 long get_ovhd_count(redisDb* db,sds tname,const char* suf);
 #endif
 
+#define TREE_OVERHEAD
+
 //#define COUNT_OPS
 #ifdef COUNT_OPS
 void ozopcountCommand(client *c);
@@ -2080,6 +2082,10 @@ void InsertWithIdCommand(client *c);
 void DeleteCommand(client *c);
 void ChangeValueCommand(client *c);
 void MoveCommand(client *c);
+
+#ifdef TREE_OVERHEAD
+void treeOverhead(client* c);
+#endif
 
 void rwsaddCommand(client *c);
 void rwsremCommand(client *c);
