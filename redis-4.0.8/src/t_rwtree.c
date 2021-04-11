@@ -33,63 +33,6 @@ static FILE *rwtLog = NULL;
     }while(0)
 #endif
 
-/**********************队列*****************************/
-/*
-typedef struct QNode{
-        sds data;
-        struct QNode *next;
-}QNode;
-
-typedef struct Queue{
-    QNode* front;
-    QNode* rear;
-}Queue;
-
-QNode* newQNode(sds val){
-    QNode* qn = (QNode*) malloc(sizeof(QNode));
-    qn->data = sdsdup(val);
-    qn->next = NULL;
-    return qn;
-}
-
-Queue* initQueue(){
-    Queue* q = (Queue*) malloc(sizeof(Queue));
-    q->front = newQNode(sdsnew(""));
-    q->rear = q->front;
-    return q;
-}
-
-int QueueEmpty(Queue* q){
-    return (q->front==q->rear)?1:0;
-}
-
-void enQueue(Queue* q, sds val){
-    QNode* qn = newQNode(val);
-    q->rear->next = qn;
-    q->rear = q->rear->next;
-
-    return;
-}
-
-sds deQueue(Queue* q){
-
-    if (QueueEmpty(q)){
-        return NULL;
-    } 
-
-    QNode* qn = q->front->next;
-    if (qn==q->rear){
-        q->rear = q->front;
-    }
-    sds val = sdsdup(qn->data);
-    q->front->next = qn->next;
-
-    sdsfree(qn->data);
-    free(qn);
-    return val;
-   
-}
-*/
 
 /*******************tree node**********************/
 
@@ -211,33 +154,6 @@ robj* subTree(redisDb *db, robj* treeHT, sds uid){
         sdsfree(curId);
     }
 
-    /*
-    while(!QueueEmpty(queue)){
-        sds parent_id = deQueue(queue);
-        //rtn* tn = tnHTGet(db, treeHT, parent_id, 0);
-        rtn* tn = rtnHTGet(db,treeHT,parent_id,0);
-        if (tn && EXISTS(tn)){
-            setTypeAdd(subtree,parent_id);
-            if (setTypeSize(tn->tdata->children)>0){
-                sds ele;
-                setTypeIterator *si;
-                si = setTypeInitIterator(tn->tdata->children);
-                while((ele = setTypeNextObject(si)) != NULL) {
-                    enQueue(queue,ele);
-                    sdsfree(ele);
-                }
-                setTypeReleaseIterator(si);
-            }
-            
-        }
-              
-        sdsfree(parent_id);
-    }
-
-    sdsfree(queue->front->data);
-    free(queue->front);
-    free(queue);
-    */
    listEmpty(list);
 
     return subtree;
@@ -581,17 +497,7 @@ void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
             tRemFunc(c,tn,r);
 
             if (updateCheck((reh *) tn, r)){
-                /*
-                if (checkCurrency(tn->tdata->vectorClock,vc_changeval)){
-                    sds tmp = sdsnew(tn->tdata->name);
-                    if (sdscmp(tmp,c->rargv[3]->ptr)>0){
-                        sdsfree(tn->tdata->name);
-                        tn->tdata->name = sdsdup(c->rargv[3]->ptr);  
-                    }
-                    sdsfree(tmp);
-                    
-                } 
-                */
+                
                 if (currentCompare(tn->tdata->vectorClock, vc_changeval) < 0) {
                     sdsfree(tn->tdata->name);
                     tn->tdata->name = sdsdup(c->rargv[3]->ptr);
