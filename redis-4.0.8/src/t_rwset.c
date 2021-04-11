@@ -28,6 +28,10 @@ typedef struct RW_SET_element {
     reh header;
 } rwse;
 
+#ifdef RWF_SET_OVERHEAD
+#define RWF_SET_ELE_SIZE sizeof(rwse) + sizeof(vc) + server.p2p_count * sizeof(int)
+#endif
+
 reh *rwseNew() {
     rwse *e = zmalloc(sizeof(rwse));
     REH_INIT(e);
@@ -141,6 +145,10 @@ void rwsaddCommand(client *c) {
                     }
                 }
                 RARGV_ADD_SDS(sdsfromlonglong(added));
+                if (added == 0) {
+                    addReply(c,shared.ele_exist);
+                    return;
+                }
                 
     
             CRDT_EFFECT
@@ -175,6 +183,10 @@ void rwsremCommand(client *c) {
                     }
                 }
                 RARGV_ADD_SDS(sdsfromlonglong(remed));
+                if (remed == 0) {
+                    addReply(c,shared.ele_nexist);
+                    return;
+                }
     
             CRDT_EFFECT
     #ifdef COUNT_OPS
@@ -364,6 +376,10 @@ void rwsunionstoreCommand(client *c) {
                 setTypeReleaseIterator(si);
                 decrRefCount(dstset);
                 RARGV_ADD_SDS(sdsfromlonglong(added));
+                if (added == 0) {
+                    addReply(c,shared.ele_exist);
+                    return;
+                }
     
             CRDT_EFFECT
     #ifdef COUNT_OPS
@@ -405,6 +421,10 @@ void rwsdiffstoreCommand(client *c) {
                 setTypeReleaseIterator(si);
                 decrRefCount(dstset);
                 RARGV_ADD_SDS(sdsfromlonglong(remed));
+                if (remed == 0) {
+                    addReply(c,shared.ele_nexist);
+                    return;
+                }
     
             CRDT_EFFECT
     #ifdef COUNT_OPS
@@ -448,6 +468,10 @@ void rwsinterstoreCommand(client *c) {
                 setTypeReleaseIterator(si);
                 decrRefCount(dstset);
                 RARGV_ADD_SDS(sdsfromlonglong(remed));
+                if (remed == 0) {
+                    addReply(c,shared.ele_nexist);
+                    return;
+                }
     
             CRDT_EFFECT
     #ifdef COUNT_OPS
@@ -457,3 +481,23 @@ void rwsinterstoreCommand(client *c) {
         CRDT_END
 
 }
+
+#ifdef RWF_SET_OVERHEAD
+void rwfSetOverhead(client* c) {
+    robj *ht = getInnerHT(c->db, c->argv[1]->ptr, RW_SET_TABLE_SUFFIX, 0);
+    if (ht == NULL) {
+        addReplyLongLong(c, 0);
+        return;
+    }
+    robj *o;
+    if ((o = lookupKeyReadOrReply(c,c->argv[1],shared.czero)) == NULL ||
+        checkType(c,o,OBJ_SET)) return;
+
+    unsigned long size = hashTypeLength(ht);
+    double ovhd = size * RWF_SET_ELE_SIZE;
+    ovhd = ovhd * (1.0 / setTypeSize(o));
+    addReplyDouble(c,ovhd);
+
+}
+
+#endif

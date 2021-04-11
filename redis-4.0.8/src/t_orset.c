@@ -31,6 +31,11 @@ typedef struct OR_SET_element
     dict *rset;
 } ore;
 
+#ifdef OR_SET_OVERHEAD
+static long long total_tag_size = 0;
+#define OR_SET_ELE_SIZE sizeof(ore) + 2 * sizeof(dict)
+#endif
+
 ore *oreNew()
 {
     ore *e = zmalloc(sizeof(ore));
@@ -106,7 +111,14 @@ void orsaddGenericCommand(client* c, robj* setName) {
         sds tag = c->rargv[idx + 1]->ptr;
         if (removeTag(e->rset, tag) == 0) {
             addTag(e->aset, tag);
+
+            #ifdef OR_SET_OVERHEAD
+            total_tag_size += sdslen(tag);
         }
+        else {
+            total_tag_size -= sdslen(tag);
+            #endif
+        } 
         if (lookup(e) > 0) {
             setTypeAdd(set, c->rargv[idx]->ptr);
         }
@@ -134,6 +146,13 @@ void orsremGenericCommand(client* c, robj* setName) {
             sds tag = c->rargv[i]->ptr;
             if (removeTag(e->aset, tag) == 0) {
                 addTag(e->rset, tag);
+
+                #ifdef OR_SET_OVERHEAD
+                total_tag_size += sdslen(tag);
+            }
+            else {
+                total_tag_size -= sdslen(tag);
+                #endif
             }
         }
         
@@ -173,6 +192,10 @@ void orsaddCommand(client *c) {
                     }
                 }
                 RARGV_ADD_SDS(sdsfromlonglong(added));
+                if (added == 0) {
+                    addReply(c,shared.ele_exist);
+                    return;
+                }
     
             CRDT_EFFECT
     #ifdef COUNT_OPS
@@ -219,6 +242,10 @@ void orsremCommand(client *c) {
                     }
                 }
                 RARGV_ADD_SDS(sdsfromlonglong(remed));
+                if (remed == 0) {
+                    addReply(c,shared.ele_nexist);
+                    return;
+                }
     
             CRDT_EFFECT
     #ifdef COUNT_OPS
@@ -364,3 +391,21 @@ void orsinterstoreCommand(client *c) {
         CRDT_END
 
 }
+
+#ifdef OR_SET_OVERHEAD
+void orSetOverhead(client* c) {
+    robj *ht = getInnerHT(c->db, c->argv[1]->ptr, OR_SET_TABLE_SUFFIX, 0);
+    if (ht == NULL) {
+        addReplyLongLong(c, 0);
+        return;
+    }
+    robj *o;
+    if ((o = lookupKeyReadOrReply(c,c->argv[1],shared.czero)) == NULL ||
+        checkType(c,o,OBJ_SET)) return;
+    unsigned long size = hashTypeLength(ht);
+    double ovhd = size * OR_SET_ELE_SIZE + total_tag_size;
+    ovhd = ovhd * (1.0 / setTypeSize(o));
+    addReplyDouble(c,ovhd);
+}
+
+#endif

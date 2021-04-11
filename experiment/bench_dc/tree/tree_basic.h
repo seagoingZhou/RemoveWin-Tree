@@ -7,9 +7,18 @@
 
 // add-rem domanient 0.6-0.1-0.3
 // chg domanient 0.2-0.7-0.1
+#define ADD_REM_WORKLOAD 0
+//#define CHG_WORKLOAD 1
+#ifdef ADD_REM_WORKLOAD
 #define PR_ADD 0.6
 #define PR_CHV 0.1
 #define PR_REM 0.3
+#endif
+#ifdef CHG_WORKLOAD
+#define PR_ADD 0.2
+#define PR_CHV 0.7
+#define PR_REM 0.1
+#endif
 
 #define PR_ADD_R 0.15
 #define PR_REM_A 0.1

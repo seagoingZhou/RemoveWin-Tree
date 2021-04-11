@@ -32,15 +32,28 @@ private:
     unordered_set<string> downboundSets;
     unordered_set<string> remoteMaxSets;
     unordered_set<string> remoteMinSets;
+    vector<string> ovhdRecord;
+
+    int testModel;
+    int simpleFlag;
+
+    int targetFlag;
 
     void checkUpAndDown(string setName);
 
 public:
-    set_log(const char *type, const char *dir, int ssize, int ksize, int up, int down) : 
+    set_log(const char *type, const char *dir, int ssize, int ksize, int up, int down, int model) : 
         rdt_log(type, dir), 
         setSize(ssize), 
         setMap(new unordered_map<string,unordered_set<string>*>()),
-        initKeySize(ksize), upbound(up), downbound(down){
+        initKeySize(ksize), upbound(up), downbound(down),
+        testModel(model) {
+        if (testModel == SIMPLE) {
+            setSize = 1;
+            ksize = 1000;
+            simpleFlag = 0;
+        }
+        targetFlag = 0;
         keyGen = new Key(10000);
         for (int i = 0; i < setSize; ++i) {
             string setName = "set" + to_string(i);
@@ -74,6 +87,52 @@ public:
     vector<string> getUnionSets();
     string randomKeyGet(string set);
     string nextKeyGenerator();
+
+    void soverhead(redisReply *reply) {
+        //if (reply->type == REDIS_REPLY_DOUBLE) {
+            //double count = reply->dval;
+            string cnt = reply->str;
+            ovhdRecord.push_back(cnt);
+        //}
+    }
+
+    int getModel() {
+        return testModel;
+    }
+
+    int getSimpleKeySize() {
+        lock_guard<mutex> lk(mtx);
+        string setName = "set0";
+        return setMap->at(setName)->size();
+    }
+
+    void setSimpleFlag(int flag) {
+        lock_guard<mutex> lk(mtx);
+        simpleFlag = flag;
+    }
+
+    int getSimpleFlag() {
+        lock_guard<mutex> lk(mtx);
+        return simpleFlag;
+    }
+
+    int getTargetSize() {
+        lock_guard<mutex> lk(mtx);
+        string setName = "set0";
+        return setMap->at(setName)->size();
+    }
+
+    void setTargetFlag(int flag) {
+        lock_guard<mutex> lk(mtx);
+        targetFlag = flag;
+    } 
+
+    int getTargetFlag() {
+        lock_guard<mutex> lk(mtx);
+        return targetFlag;
+    }
+
+    
 
     string getSetType() {
         lock_guard<mutex> lk(mtx);

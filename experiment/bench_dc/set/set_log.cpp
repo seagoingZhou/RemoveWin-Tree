@@ -93,18 +93,18 @@ void set_log::initSet() {
     redisReply *reply;
     redisContext *c = redisConnect("192.168.193.1", 6379);
     printf("set init begin...\n");
-    if (MODEL == SIMPLE) {
-        setSize = 1;
-        initKeySize = 5000;
-
-    }
     for (int j = 0; j < setSize; ++j) {
         string setName = "set" + to_string(j);
         char tmp[512];
         string keys = "";
         unordered_set<string> kSet;
         for (int k = 0; k < 25; ++k) {
-            string keyName = keyGen->randomKey();
+            string keyName;
+            if (getModel() == SIMPLE) {
+                keyName = keyGen->nextKey();
+            } else {
+                keyName = keyGen->randomKey();
+            }
             if (!kSet.count(keyName)) {
                 kSet.insert(keyName);
                 sadd(setName, keyName);
@@ -151,8 +151,11 @@ void set_log::initSet() {
 
 string set_log::randomSetGet() {
     lock_guard<mutex> lk(mtx);
+    if (getModel() == SIMPLE) {
+        return string("set0");
+    }
     int idx = intRand(setSize - 1);
-    string res = "set" + to_string(idx);;
+    string res = "set" + to_string(idx);
     for (int i = 0; i < setSize; ++i) {
         int jdx = (idx + i) % setSize;
         string curSetName = "set" + to_string(jdx);
@@ -169,6 +172,9 @@ string set_log::randomSetGet() {
 
 string set_log::randomSetNextGet(string set) {
     lock_guard<mutex> lk(mtx);
+    if (getModel() == SIMPLE) {
+        return string("set0");
+    }
     int idx = intRand(setSize - 1);
     string res = "set" + to_string(idx);;
     for (int i = 0; i < setSize; ++i) {
@@ -244,14 +250,18 @@ string set_log::randomKeyGet(string set) {
     if (setMap->at(set)->empty()) {
         return "##";
     }
-    /*
-    int randIdx = intRand(setMap[set].size());
-    unordered_set<string>::iterator it = setMap[set].begin();
-    while (randIdx-- > 0 && it != setMap[set].end()) {
+    
+    int randIdx = intRand(setMap->at(set)->size());
+    unordered_set<string>::iterator it = setMap->at(set)->begin();
+    while (randIdx-- > 0 && it != setMap->at(set)->end()) {
         ++it;
     }
-    */
-    string res = *setMap->at(set)->begin();
+    string res = *it;
+    
+    //
+    
+
+    //string res = *setMap->at(set)->begin();
     /*
     if (it != setMap[set].end()) {
         res = *it;
@@ -259,6 +269,7 @@ string set_log::randomKeyGet(string set) {
     */
     return res;
 }
+
 
 string set_log::nextKeyGenerator() {
     lock_guard<mutex> lk(mtx);
@@ -317,5 +328,16 @@ void set_log::write_file() {
     }
     fflush(setLog);
     fclose(setLog);
+
+    if (!ovhdRecord.empty()) {
+        sprintf(f, "%s/s.ovhd", n);
+        FILE *oh = fopen(f, "w");
+        for (string cnt : ovhdRecord) {
+            fprintf(oh,"%s\n",cnt.c_str());
+        }
+
+        fflush(oh);
+        fclose(oh);
+    }
     
 }

@@ -59,7 +59,7 @@ inline void treeConfigSpeed(int speed) {
 
 inline void treeConfigOvhd() {
     treeConfigDefault();
-    TOTAL_OPS = OP_PER_SEC * 100;
+    //TOTAL_OPS = OP_PER_SEC * 100;
 }
 
 
@@ -67,7 +67,7 @@ inline void SetConfigDefault() {
     DELAY = 100;
     DELAY_LOW = 20;
     TOTAL_SERVERS = 9;
-    OP_PER_SEC = 1000;
+    OP_PER_SEC = 10000;
     TOTAL_OPS = OP_PER_SEC * 60;
 }
 
@@ -78,6 +78,11 @@ inline void SetConfigDelay(int delay) {
 
 inline void SetConfigReplica(int replica) {
     TOTAL_SERVERS = 3 * replica;
+}
+
+inline void SetConfigSpeed(int speed) {
+    OP_PER_SEC = speed;
+    TOTAL_OPS = OP_PER_SEC * 60;
 }
 
 inline void set_speed(int speed)
@@ -303,12 +308,12 @@ void treeTestReplica() {
 
 void tree_experiment()
 {
-    treeConfigSpeed(7000);
+    treeConfigSpeed(10000);
     double hd = DELAY;
     double ld = DELAY_LOW;
     double hd_r = DELAY * 0.05;
     double ld_r = DELAY_LOW * 0.05;
-    TOTAL_OPS = OP_PER_SEC * 150;
+    TOTAL_OPS = OP_PER_SEC * 100;
     TOTAL_SERVERS = 9;
     timeval t1{}, t2{};
     gettimeofday(&t1, nullptr);
@@ -358,7 +363,7 @@ int setTestDis(const char *type, const char *dir, int ssize, int ksize){
     double ld = DELAY_LOW;
     double hd_r = DELAY * 0.05;
     double ld_r = DELAY_LOW * 0.05;
-    set_log setLog(type, dir, ssize, ksize, MAX_KEY_SIZE, MIN_KEY_SIZE);
+    set_log setLog(type, dir, ssize, ksize, MAX_KEY_SIZE, MIN_KEY_SIZE, 0);
     set_generator gen(setLog);
     set_cmd read_members("",MEMBERS,"","","",setLog);
     setLog.initSet();
@@ -370,6 +375,46 @@ int setTestDis(const char *type, const char *dir, int ssize, int ksize){
     exp_runner<string> runner(setLog, gen);
     runner.set_cmd_read(read_members);
     return runner.run();
+}
+
+int setTestOvhd(const char *type, const char *dir) {
+    double hd = DELAY;
+    double ld = DELAY_LOW;
+    double hd_r = DELAY * 0.05;
+    double ld_r = DELAY_LOW * 0.05;
+    set_log setLog(type, dir, 1, 1000, MAX_KEY_SIZE, MIN_KEY_SIZE, 0);
+    set_generator gen(setLog);
+    set_cmd read_ovhd(type,OVERHEAD,"","","",setLog);
+    setLog.initSet();
+    char pycmd[256];
+    sprintf(pycmd, "python3.6 ../redis_test/connection.py %f %f %f %f", hd, hd_r, ld, ld_r);
+    system(pycmd);
+    exp_runner<string> runner(setLog, gen);
+    runner.set_cmd_ovhd(read_ovhd);
+    return runner.run();
+
+}
+
+void setConfigOvhd() {
+    SetConfigDefault();
+    OP_PER_SEC = 10000;
+    TOTAL_OPS = OP_PER_SEC * 100;
+}
+
+void setOverhead(const char *type) {
+    setConfigOvhd();
+    char pycmd0[256];
+    sprintf(pycmd0, "python3.6 ../redis_test/connection.py %d", 3);
+    system(pycmd0);
+    
+    timeval t1{}, t2{};
+    gettimeofday(&t1, nullptr);
+    setTestOvhd(type, "../result/RawData");
+    gettimeofday(&t2, nullptr);
+    double time_diff_sec = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
+    printf("total time: %f\n", time_diff_sec);
+
+    
 }
 
 void set_exp() {
@@ -390,8 +435,8 @@ void set_exp() {
 }
 
 int setSpeed(const char *type, int speed) {
-    set_default();
-    set_speed(speed);
+    SetConfigDefault();
+    SetConfigSpeed(speed);
     int ret = 0;
 
     char pycmd0[256];
@@ -446,16 +491,16 @@ int setReplica(const char *type, int replica) {
 }
 
 void setTestSpeed(const char *type) {
-    int speed = 2500;
+    int speed = 500;
     int ret = 0;
     ROUND = 0;
-    while (speed >= 500) {
+    while (speed <= 2500) {
         ret = setSpeed(type, speed);
         if (ret == 0) {
             if (ROUND < 50) {
                 ++ROUND;
             } else {
-                speed -= 500;
+                speed += 500;
                 ROUND = 0;
             }
             
@@ -464,20 +509,20 @@ void setTestSpeed(const char *type) {
 }
 
 void setTestDelay(const char *type) {
-    int delay = 125;
+    int delay = 150;
     int ret = 0;
-    ROUND = 0;
-    while (delay >= 75) {
+    ROUND = 1;
+    while (delay >= 50) {
         ret = setDelay(type, delay);
         if (ret == 0) {
             if (ROUND < 50) {
                 ++ROUND;
             } else {
-                delay -= 50;
+                delay -= 25;
                 if (delay == 100) {
-                    delay -= 50;
+                    delay -= 25;
                 }
-                ROUND = 0;
+                ROUND = 1;
             }
             
         }
@@ -511,7 +556,7 @@ int main(int argc, char *argv[])
     //test_count_dis_one(ips[0],6379);
     //printf("test begin...\n");
     //tree_experiment();
-    //treeTestReplica();
+    treeTestReplica();
     //treeTestSpeed();
     //treeTestDelay();
     //delayTest();
@@ -524,7 +569,16 @@ int main(int argc, char *argv[])
     //setTestDelay("rw");
     //setTestDelay("pn");
     //setTestDelay("or");
-    tree_ovhd_experiment();
+    //setTestReplica("rw");
+    //setTestReplica("pn");
+    //setTestReplica("or");
+    //setReplica("or", 1);
+    //tree_ovhd_experiment();
+    //setSpeed("rw", 2500);
+    //setSpeed("pn", 2500);
+    //setOverhead("or");
+    //setOverhead("pn");
+    //setOverhead("rw");
     
 
 

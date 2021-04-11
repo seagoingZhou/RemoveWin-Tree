@@ -2051,6 +2051,9 @@ long get_ovhd_count(redisDb* db,sds tname,const char* suf);
 #endif
 
 #define TREE_OVERHEAD
+#define RWF_SET_OVERHEAD
+#define PN_SET_OVERHEAD
+#define OR_SET_OVERHEAD
 
 //#define COUNT_OPS
 #ifdef COUNT_OPS
@@ -2092,18 +2095,27 @@ void rwsremCommand(client *c);
 void rwsinterstoreCommand(client *c);
 void rwsunionstoreCommand(client *c);
 void rwsdiffstoreCommand(client *c);
+#ifdef RWF_SET_OVERHEAD
+void rwfSetOverhead(client* c);
+#endif
 
 void pnsaddCommand(client *c);
 void pnsremCommand(client *c);
 void pnsunionstoreCommand(client *c);
 void pnsdiffstoreCommand(client *c);
 void pnsinterstoreCommand(client *c);
+#ifdef PN_SET_OVERHEAD
+void pnSetOverhead(client* c);
+#endif
 
 void orsaddCommand(client *c);
 void orsremCommand(client *c);
 void orsunionstoreCommand(client *c);
 void orsdiffstoreCommand(client *c);
 void orsinterstoreCommand(client *c);
+#ifdef OR_SET_OVERHEAD
+void orSetOverhead(client* c);
+#endif
 
 #if defined(__GNUC__)
 void *calloc(size_t count, size_t size) __attribute__ ((deprecated));

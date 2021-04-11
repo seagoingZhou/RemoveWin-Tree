@@ -171,8 +171,10 @@ public:
         if (ovhd_cmd!=nullptr)
         {
             ob = true;
+            
             ovhd_thread = new thread([this, &ob] {
                 redisContext *cl = redisConnect(ips[0], 6379);
+                this_thread::sleep_for(chrono::seconds(TIME_OVERHEAD));
                 while (ob)
                 {
                     this_thread::sleep_for(chrono::seconds(TIME_OVERHEAD));
@@ -181,6 +183,7 @@ public:
                 redisFree(cl);
             });
             //ovhd_thread = &overhead;
+            
         }
 
         timer.join();

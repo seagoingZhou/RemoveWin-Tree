@@ -29,6 +29,10 @@ typedef struct PN_SET_element
     long long current;
 } pne;
 
+#ifdef PN_SET_OVERHEAD
+#define PN_SET_ELE_SIZE sizeof(pne)
+#endif
+
 pne *pneNew()
 {
     pne *e = zmalloc(sizeof(pne));
@@ -120,6 +124,10 @@ void pnsaddCommand(client *c) {
                     }
                 }
                 RARGV_ADD_SDS(sdsfromlonglong(added));
+                if (added == 0) {
+                    addReply(c,shared.ele_exist);
+                    return;
+                }
     
             CRDT_EFFECT
     #ifdef COUNT_OPS
@@ -152,6 +160,10 @@ void pnsremCommand(client *c) {
                     }
                 }
                 RARGV_ADD_SDS(sdsfromlonglong(remed));
+                if (remed == 0) {
+                    addReply(c,shared.ele_nexist);
+                    return;
+                }
     
             CRDT_EFFECT
     #ifdef COUNT_OPS
@@ -265,3 +277,22 @@ void pnsinterstoreCommand(client *c) {
         CRDT_END
 
 }
+
+#ifdef PN_SET_OVERHEAD
+void pnSetOverhead(client* c) {
+    robj *ht = getInnerHT(c->db, c->argv[1]->ptr, PN_SET_TABLE_SUFFIX, 0);
+    if (ht == NULL) {
+        addReplyLongLong(c, 0);
+        return;
+    }
+    robj *o;
+    if ((o = lookupKeyReadOrReply(c,c->argv[1],shared.czero)) == NULL ||
+        checkType(c,o,OBJ_SET)) return;
+
+    unsigned long size = hashTypeLength(ht);
+    double ovhd = size * PN_SET_ELE_SIZE;
+    ovhd = ovhd * (1.0 / setTypeSize(o));
+    addReplyDouble(c,ovhd);
+}
+
+#endif

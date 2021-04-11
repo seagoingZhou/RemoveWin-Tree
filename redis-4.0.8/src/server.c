@@ -347,6 +347,9 @@ struct redisCommand redisCommandTable[] = {
     {"rwsunionstore",rwsunionstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
     {"rwsdiff",sdiffCommand,-2,"rS",0,NULL,1,-1,1,0,0},
     {"rwsdiffstore",rwsdiffstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
+    #ifdef RWF_SET_OVERHEAD
+    {"rwsetovhd",rwfSetOverhead,2,"rF",0,NULL,1,1,1,0,0},
+    #endif
     {"pnsadd",pnsaddCommand,-3,"wmF",0,NULL,1,1,1,0,0},
     {"pnsrem",pnsremCommand,-3,"wF",0,NULL,1,1,1,0,0},
     {"pnsunion",sunionCommand,-2,"rS",0,NULL,1,-1,1,0,0},
@@ -355,11 +358,17 @@ struct redisCommand redisCommandTable[] = {
     {"pnsdiffstore",pnsdiffstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
     {"pnsinter",sinterCommand,-2,"rS",0,NULL,1,-1,1,0,0},
     {"pnsinterstore",pnsinterstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
+    #ifdef PN_SET_OVERHEAD
+    {"pnsetovhd",pnSetOverhead,2,"rF",0,NULL,1,1,1,0,0},
+    #endif
     {"orsadd",orsaddCommand,-3,"wmF",0,NULL,1,1,1,0,0},
     {"orsrem",orsremCommand,-3,"wF",0,NULL,1,1,1,0,0},
     {"orsunionstore",orsunionstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
     {"orsdiffstore",orsdiffstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
     {"orsinterstore",orsinterstoreCommand,-3,"wm",0,NULL,1,-1,1,0,0},
+    #ifdef OR_SET_OVERHEAD
+    {"orsetovhd",orSetOverhead,2,"rF",0,NULL,1,1,1,0,0},
+    #endif
 };
 
 /*============================ Utility functions ============================ */

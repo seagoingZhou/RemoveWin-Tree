@@ -13,10 +13,6 @@
 long long ovhd_cnt = 0;
 #endif
 
-#define RWF_NODE_STRINGS(e) (2 * sdslen(e->tdata->uid) + sdslen(e->tdata->name) + sdslen(e->tdata->parent))
-#define RWF_NODE_BASE(e) (sizeof(rtn) + sizeof(rawt) + 2*sizeof(vc) + sizeof(robj))
-#define RWF_NODE_SIZE(e) RWF_NODE_BASE(e) + RWF_NODE_STRINGS(e)
-
 #ifdef RWT_OVERHEAD
 #define SUF_RZETOTAL "rwttotal"
 static redisDb *cur_db = NULL;
@@ -112,6 +108,23 @@ typedef struct TreeNode
     reh header;
     rawt* tdata;
 }rtn;
+
+#define RWF_NODE_BASE(e) (sizeof(rtn) + sizeof(rawt) + 2*sizeof(vc) + sizeof(robj))
+long long treeNodeAttribute(rtn *e) {
+    long long ret = 0;
+    if (e->tdata->uid != NULL) {
+        ret += 2 * sdslen(e->tdata->uid);
+    }
+    if (e->tdata->name != NULL) {
+        ret += sdslen(e->tdata->name);
+    }
+    if (e->tdata->parent != NULL) {
+        ret += sdslen(e->tdata->parent);
+    }
+    return ret;
+}
+#define RWF_NODE_SIZE(e) RWF_NODE_BASE(e) + treeNodeAttribute(e)
+
 
 /****************辅助函数************************/
 reh *rtnNew(){
@@ -451,7 +464,7 @@ void treeNodeInsertWithUid(client *c, redisDb *db,robj *tname, robj *nodename){
             }
 
             #ifdef TREE_OVERHEAD
-            long inc = RWF_NODE_SIZE(tn);
+            long long inc = RWF_NODE_SIZE(tn);
             ovhd_cnt += inc;
             #endif
             
@@ -516,6 +529,20 @@ int checkCurrency(const vc * vc1, const vc *vc2){
     return flag1&&flag2;
 }
 
+int currentCompare(const vc * vc1, const vc *vc2) {
+    serverAssert(vc1->size == vc2->size);
+
+    for (int i = 0; i < vc1->size; ++i){
+        if (vc1->vector[i] > vc2->vector[i]){
+            return 1;
+        } else if (vc1->vector[i] < vc2->vector[i]){
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 /* 
  *  changeValue treeName node_id nodeName
  */
@@ -554,6 +581,7 @@ void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
             tRemFunc(c,tn,r);
 
             if (updateCheck((reh *) tn, r)){
+                /*
                 if (checkCurrency(tn->tdata->vectorClock,vc_changeval)){
                     sds tmp = sdsnew(tn->tdata->name);
                     if (sdscmp(tmp,c->rargv[3]->ptr)>0){
@@ -562,6 +590,11 @@ void treeNodeChangeValue(client *c, redisDb *db,robj *tname, robj *uid){
                     }
                     sdsfree(tmp);
                     
+                } 
+                */
+                if (currentCompare(tn->tdata->vectorClock, vc_changeval) < 0) {
+                    sdsfree(tn->tdata->name);
+                    tn->tdata->name = sdsdup(c->rargv[3]->ptr);
                 } else if (causally_ready(tn->tdata->vectorClock,vc_changeval)){
                     sdsfree(tn->tdata->name);
                     tn->tdata->name = sdsdup(c->rargv[3]->ptr);
@@ -693,6 +726,19 @@ void MoveCommand(client* c){
 /* rwftreeovhd tname*/
 #ifdef TREE_OVERHEAD
 void treeOverhead(client* c) {
-    addReplyLongLong(c, ovhd_cnt);
+    robj *tree = subTree(c->db,c->argv[1],sdsnew(ROOT_ID));
+    if (tree == NULL) {
+        addReply(c,shared.czero);
+        return;
+    } 
+    
+    long long  keySize= setTypeSize(tree);
+    if (keySize == 0) {
+        addReply(c,shared.czero);
+        return;
+    }
+    long long avgOvhd = ovhd_cnt / keySize;
+    decrRefCount(tree);
+    addReplyLongLong(c, avgOvhd);
 }
 #endif
