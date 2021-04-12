@@ -1,3 +1,73 @@
+
+## 基于RWF设计框架的CRDT
+RWF设计框架以Redis为平台，通过修改Redis源码，实现了P2P复制拓展，并提供了CRDT实现的编程模板。RWF设计框架对Redis的修改文档详见[RWF](https://github.com/elem-azar-unis/CRDT-Redis/tree/master/document/chinese)。
+
+基于RWF设计框架，我们实现了以下的CRDT数据类型
+* Set
+    * Observed-Remove Set (Add-Win Set)
+    * Positive-Negative Set
+    * RWF-Set
+* Tree
+    * RWF-Tree
+
+## CRDT操作命令
+
+相同类型CRDT的不同实现为用户提供了相同的操作。我们使用 **[type][op]** 表示操作命令
+
+
+### Set
+不同Set的前缀 **[type]** 如下所示:
+
+* Observed-Remove Set : **OR**
+* Positive-Negative Set : **PN**
+* RWF-Set : **RWF**
+
+Set的更新操作命令如下所示
+
+* **[type]SADD key member [member …]** : 将一个或多个 *member*元素加入到集合*key*当中，已经存在于集合的*member*元素将被忽略。
+* **[type]SREM key member [member …]** : 移除集合*key*中的一个或多个*member*元素，不存在的*member*元素会被忽略。
+* **[type]SINTERSTORE destination key [key …]** : 计算给定集合的交集，将结果保存到*destination*集合。
+* **[type]SUNIONSTORE destination key [key …]** : 计算给定集合的并集，将结果保存到*destination*集合。
+* **[type]SDIFFSTORE destination key [key …]** : 计算给定集合的差集，将结果保存到*destination*集合。
+
+### Tree
+
+RWF-Tree的操作命令如下所示：
+* **RWFTREECREATE tree\_name** : 创建一个名为*tree\_name*的RWF-Tree。
+* **RWFTREEINSERT  tree\_name value parent\_id id** : 向RWF-Tree *tree\_name*中id为*parent\_id*的节点插入一个子节点，该子节点的id为*id*，value为*value*
+* **RWFTREEDELETE tree\_name id** 删除RWF-Tree *tree\_name*中id为*id*的节点及其所有子节点
+* **RWFTREECHANGEVALUE tree\_name id value** 将RWF-Tree *tree\_name*中id为*id*的节点的value值修改为*value*
+* **RWFTREEMOVE tree\_name destination\_id  source\_id** 移动RWF-Tree *tree\_name*中id为*source\_id*的节点及其所有子节点到id为*destination\_id*的节点下，使得节点*destination\_id*为节点*source\_id*的父节点
+* **TREEMEMBERS tree\_name** 返回RWF-Tree *tree\_name*中所有成员及其属性信息
+
+## 核心实现文件
+项目的主要文件存放于*src*文件夹中
+* **Set**
+    * *t_rwset.c* ：RWF-Set的实现文件，具体细节详见[set.md](RWF-document/set.md)
+    * *t_orset.c* ：OR-Set的实现文件，具体细节详见[set.md](RWF-document/set.md)
+    * *t_pnset.c* ：PN-Set的实现文件，具体细节详见[set.md](RWF-document/set.md)
+
+* **Tree**
+    * *t_rwtree.c* ：RWF-Tree的实现文件，具体细节详见[tree.md](RWF-document/tree.md)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 附录
+
 This README is just a fast *quick start* document. You can find more detailed documentation at [redis.io](https://redis.io).
 
 What is Redis?
