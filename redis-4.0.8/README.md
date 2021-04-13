@@ -10,6 +10,15 @@ RWF设计框架以Redis为平台，通过修改Redis源码，实现了P2P复制�
 * Tree
     * RWF-Tree
 
+## 项目编译
+
+本项目基于Redis实现。需要在文件夹 *redis-4.0.8* 编译项目
+
+```bash
+cd redis-4.0.8
+make
+```
+
 ## CRDT操作命令
 
 相同类型CRDT的不同实现为用户提供了相同的操作。我们使用 **[type][op]** 表示操作命令
@@ -50,21 +59,48 @@ RWF-Tree的操作命令如下所示：
 * **Tree**
     * *t_rwtree.c* ：RWF-Tree的实现文件，具体细节详见[tree.md](RWF-document/tree.md)
 
+## 运行
 
+为了避免环境变量和配置的影响，以及统一路径名，本项目在Docker环境运行。Docker通过*docker*文件夹里的脚本文件配置、启动和关闭。
+```bash
+sh ./start.sh
+```
+Docker容器启动后，根据Docker容器名进入容器
+```bash
+sudo docker exec -it redis0 /bin/bash  
+```
 
+文件夹*experiment/redis_test*内的脚本文件用于CRDT数据类型的使用。默认的对等复制集群有5个Redis实例，其端口号从6379到6383。脚本文件的功能如下所示：
 
+* **server.sh [parameters]** 启动Redis服务器。默认启动5个Redis服务器实例，通过参数可启动自定义Redis服务器
+* **construct_replication.sh [parameters]** 建立对等复制网络。默认在端口号为6379到6383的5个Redis服务器实例之间建立对等复制网络，用户可自定义Redis服务器实例之间的对等连接。
+* **client.sh <server_port>** 启动Redis客户端，并连接对应端口号的Redis服务器
+* **shutdown.sh [parameters]** 关闭Redis实例
+* **clean.sh [parameters]** 清除所有的数据库文件(.rdb文件)和日志文件(.log文件)
 
+下面是一个运行demo
 
+首先终端进入路径*experiment/redis_test*，启动Redis服务器并建立对等复制模式。
+```bash
+cd  /Redis/RWTree/experiment/redis_test
+./server.sh
+./construct_replication.sh
+```
 
+此时Redis服务器实例已启动，对等复制模式已建立，用户可以通过Redis客户端进行操作。
+```bash
+./client.sh <server_port>
+```
 
+当操作结束时，用户可以关闭Redis服务器实例。
+```bash
+./shutdown.sh
+```
+最后清除所有的数据库文件(.rdb文件)和日志文件(.log文件)。
 
-
-
-
-
-
-
-
+```bash
+./clean.sh
+```
 
 # 附录
 

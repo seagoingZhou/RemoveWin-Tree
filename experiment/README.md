@@ -1,8 +1,8 @@
 # 实验测试
 ## 依赖库
+实验测试首先需要安装的依赖库如下所示
 ### C/C++ 库
 * **hiredis**
-
 ### python 库
 * **paramiko**
 * **redis**
@@ -22,6 +22,29 @@
     * cmd : CRDT操作命令
     * generator : 操作命令生成器
     * rdt_log : 记录操作命令，读取Redis实例的数据。实验完成后将原始数据写入*result*文件夹
-* *result* : 结果和数据分析。
-  * *RawData* 原始数据文件夹
-  * **.py* : 数据处理程序
+* *result* : 实验数据文件夹
+  * *process* : 数据处理程序文件夹
+  * *RawData* : 原始数据文件夹
+
+## 实验架构
+
+我们在docker上运行所有服务器节点和客户端节点。Redis服务器被划分为3个数据中心， 每个数据中心都有1-5个Redis实例。 我们通过为不同类型的连接指定不同的本地主机IP来实现此目的。
+<div align=center><img src="./exp-frm.png" width="65%" height="65%"></div>
+
+## 实验测试
+
+测试前，首先需要[编译项目](../redis-4.0.8/README.md##项目编译)。
+然后启动docker环境
+```bash
+cd docker
+sh ./start.sh
+```
+
+再编译运行实验测试程序：
+```bash
+cd bench
+make
+./bench_start
+```
+
+实验测试结束后，实验的原始数据存放于 *experiment/bench/result* 文件夹中，可以使用 *experiment/bench/result/process* 文件夹中的python文件进行处理分析

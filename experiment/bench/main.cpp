@@ -552,30 +552,26 @@ void setTestReplica(const char *type) {
 
 int main(int argc, char *argv[])
 {
-    //time_max();
-    //test_count_dis_one(ips[0],6379);
-    //printf("test begin...\n");
-    //tree_experiment();
-    treeTestReplica();
-    //treeTestSpeed();
+    /* Tree 数据一致性测试 */
+    //treeTestReplica();
+    treeTestSpeed();
     //treeTestDelay();
-    //delayTest();
-    //speedTest();
-    //set_exp();
+
+    /* Tree mete-data overhead 测试 */
+    //tree_ovhd_experiment();
+    
+    /* Set 数据一致性测试 */
     //setTestSpeed("rw");
     //setTestSpeed("pn");
     //setTestSpeed("or");
-    //setSpeed(3000);
     //setTestDelay("rw");
     //setTestDelay("pn");
     //setTestDelay("or");
     //setTestReplica("rw");
     //setTestReplica("pn");
     //setTestReplica("or");
-    //setReplica("or", 1);
-    //tree_ovhd_experiment();
-    //setSpeed("rw", 2500);
-    //setSpeed("pn", 2500);
+
+    /* Set mete-data overhead 测试 */
     //setOverhead("or");
     //setOverhead("pn");
     //setOverhead("rw");

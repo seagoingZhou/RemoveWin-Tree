@@ -1,3 +1,0 @@
-/home/zhou/Github/Zhou_Zhou/Code/Remove-Win_Tree/experiment/debug_test/buildFold/CMakeFiles/rebuild_cache.dir
-/home/zhou/Github/Zhou_Zhou/Code/Remove-Win_Tree/experiment/debug_test/buildFold/CMakeFiles/test.dir
-/home/zhou/Github/Zhou_Zhou/Code/Remove-Win_Tree/experiment/debug_test/buildFold/CMakeFiles/edit_cache.dir
