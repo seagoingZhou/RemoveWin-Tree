@@ -7,7 +7,7 @@ RWF-Tree新增了6条命令，其格式和含义为：
 * **RWFTREEDELETE tree\_name id** 删除RWF-Tree *tree\_name*中id为*id*的节点及其所有子节点
 * **RWFTREECHANGEVALUE tree\_name id value** 将RWF-Tree *tree\_name*中id为*id*的节点的value值修改为*value*
 * **RWFTREEMOVE tree\_name destination\_id  source\_id** 移动RWF-Tree *tree\_name*中id为*source\_id*的节点及其所有子节点到id为*destination\_id*的节点下，使得节点*destination\_id*为节点*source\_id*的父节点
-* **TREEMEMBERS tree\_name** 返回RWF-Tree *tree\_name*中所有成员及其属性信息
+* **RWFTREEMEMBERS tree\_name** 返回RWF-Tree *tree\_name*中所有成员及其属性信息
 
 ## 设计细节
 

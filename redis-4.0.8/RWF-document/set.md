@@ -1,5 +1,13 @@
 # 无冲突复制Set数据类型
 
+相同类型CRDT的不同实现为用户提供了相同的操作。我们使用 **[type][op]** 命令操作命令
+不同Set的前缀 **[type]** 如下所示:
+
+* Observed-Remove Set : **OR**
+* Positive-Negative Set : **PN**
+* RWF-Set : **RWF**
+
+
 ## 新增命令
 无冲突复制Set数据类型各新增了5条命令，其格式和含义为：
 * **[type]SADD key member [member …]** : 将一个或多个 *member*元素加入到集合*key*当中，已经存在于集合的*member*元素将被忽略。

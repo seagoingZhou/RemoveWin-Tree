@@ -10,16 +10,16 @@ int tree_cmd::exec(redisContext *c)
     switch (t)
     {
         case insert:
-            sprintf(tmp, "treeinsertwithid t %s %s %s",value.c_str(), pid.c_str(), uid.c_str());
+            sprintf(tmp, "rwftreeinsert t %s %s %s",value.c_str(), pid.c_str(), uid.c_str());
             break;
         case del:
-            sprintf(tmp, "treedelete t %s", pid.c_str());
+            sprintf(tmp, "rwftreedelete t %s", pid.c_str());
             break;
         case changevalue:
-            sprintf(tmp, "treechangevalue t %s %s",  pid.c_str(), value.c_str());
+            sprintf(tmp, "rwftreechangevalue t %s %s",  pid.c_str(), value.c_str());
             break;
         case treemembers:
-            sprintf(tmp, "treemembers t");
+            sprintf(tmp, "rwftreemembers t");
             break;
         case overhead:
             sprintf(tmp, "rwftreeovhd t");

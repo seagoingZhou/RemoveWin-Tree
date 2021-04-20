@@ -137,7 +137,7 @@ int tree_test_ovhd(const char *dir){
 void tree_init(){
     redisReply *reply;
     redisContext *c = redisConnect("192.168.193.1", 6379);
-    reply = (redisReply *) redisCommand(c,"treecreat t");
+    reply = (redisReply *) redisCommand(c,"rwftreecreate t");
     freeReplyObject(reply);
     redisFree(c);
     std::this_thread::sleep_for(std::chrono::seconds(1));
